@@ -249,6 +249,16 @@ textarea.input { resize: vertical; min-height: 90px; line-height: 1.55; }
 .kv2 dd { margin: 0; word-break: break-word; }
 ul.bl { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
 .docs { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.flist { display: flex; flex-direction: column; border: 1px solid var(--line2); border-radius: 12px; overflow: hidden; }
+.frow { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--line2); }
+.frow:last-child { border-bottom: none; }
+.frow .grow { flex: 1; min-width: 0; }
+.frow .grow b { word-break: break-all; }
+.ficon { flex: none; width: 40px; height: 40px; border-radius: 9px; background: var(--char); color: var(--gold); font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; letter-spacing: .03em; }
+.fbtn { display: flex; gap: 4px; flex: none; }
+@media (max-width: 640px) { .frow { flex-wrap: wrap; } .fbtn { width: 100%; justify-content: flex-end; } }
+.drop-hint { border: 2px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; color: var(--ink3); font-size: 13px; }
+.files-card.over { outline: 2px dashed var(--gold); outline-offset: -6px; background: var(--goldbg); }
 .drop-card { border: 2px dashed var(--line); background: transparent; box-shadow: none; cursor: pointer; display: flex; flex-direction: column; justify-content: center; text-align: center; }
 .drop-card:hover { border-color: var(--gold); background: var(--goldbg); }
 

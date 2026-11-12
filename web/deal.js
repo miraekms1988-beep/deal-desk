@@ -38,8 +38,9 @@ const DEAL_SPEC = [
 const SPEC = Object.fromEntries(DEAL_SPEC.map(s => [s[0], s]));
 
 /* ---------- 딜 입력 창 ---------- */
-function dealForm(d, focus, file) {
+function dealForm(d, focus, file, opts = {}) {
   const isNew = !d;
+  const pending = [];   // 이 창에서 읽은 파일 - 저장할 때 딜 자료로 올린다 (이미 올라간 파일은 빼고)
   d = d ? JSON.parse(JSON.stringify(d)) : { stage: '태핑', kind: '브릿지론', owners: [Store.mid], tranches: [], docs: [] };
   let trs = trList(d), docs = (d.docs || []).slice(), srcMap = { ...(d.src || {}) };
   const input = ([k, label, type, , ph]) => {
@@ -99,8 +100,9 @@ function dealForm(d, focus, file) {
             }
           }
           if (x.tranches.length && (!trs.length || trs.every(t => !t.name))) { readTr(); trs = x.tranches.map(t => ({ name: t.name, amount: t.amount || '', rate: t.rate || '', rank: t.rank || '' })); drawTr(); filled++; }
-          if (!docs.some(dc => dc.name === f.name)) docs.push({ name: f.name, url: '', at: today(), auto: true });
-          st.innerHTML = `<b style="color:var(--green)">✓ ${filled}개 칸을 채웠습니다</b>${sugg ? ` · 이미 적힌 ${sugg}칸은 자료 값을 옆에 표시했습니다` : ''} <span class="muted">(${r.lines.length}줄 읽음 · 금빛 칸을 확인하고 저장하세요)</span>`;
+          const already = (opts.stored && f === file) || (d.files || []).some(x => x.name === f.name && x.size === f.size);
+          if (!already && !pending.some(p => p.name === f.name)) pending.push(f);
+          st.innerHTML = `<b style="color:var(--green)">✓ ${filled}개 칸을 채웠습니다</b>${sugg ? ` · 이미 적힌 ${sugg}칸은 자료 값을 옆에 표시했습니다` : ''} <span class="muted">(${r.lines.length}줄 읽음 · 금빛 칸을 확인하고 저장하세요${pending.length ? ` · 저장하면 ${pending.map(p => p.name).join(', ')} 이(가) 딜 자료로 올라갑니다` : ''})</span>`;
         } catch (e) { console.error(e); st.innerHTML = `<span style="color:var(--red)">${esc(e.message || String(e))}</span>`; }
       };
       $('#f-kind', el).addEventListener('change', () => { d._kindTouched = true; });
@@ -130,11 +132,19 @@ function dealForm(d, focus, file) {
         v.docs = [...docs.filter(x => !x.url), ...links];
         v.owners = $$('.f-owner', el).filter(c => c.checked).map(c => c.value);
         v.src = srcMap;
+        // 읽은 파일을 딜 자료로 올린다 - 저장소가 아직 첨부를 모르면 딜은 저장하고 알려만 준다
+        const storePending = async id => {
+          if (!pending.length) return;
+          try { await uploadDealFiles(id, pending, { offerFill: false }); }
+          catch (e) { await Store.update(id, x => { x.docs = [...(x.docs || []), ...pending.filter(p => !(x.docs || []).some(dc => dc.name === p.name)).map(p => ({ name: p.name, url: '', at: today(), auto: true }))]; return x; }).catch(() => { }); toast('딜은 저장했지만 파일은 못 올렸습니다: ' + e.message, true); }
+        };
         await act(async () => {
           if (isNew) {
             const nd = await Store.create('deal', { ...v, createdAt: new Date().toISOString(), createdBy: Store.mid });
             await addLog({ dealId: nd.id, type: 'system', text: `새 딜 등록 (${v.kind}${v.target ? ', ' + fmt(v.target) + '억' : ''})${Object.keys(srcMap).length ? ' · 자료 자동 입력: ' + [...new Set(Object.values(srcMap))].join(', ') : ''}` });
             close(); location.hash = '#/deal/' + encodeURIComponent(nd.id);
+            await storePending(nd.id);
+            return;
           } else {
             const before = Store.get(d.id) || {};
             await Store.update(d.id, x => ({ ...x, ...v }));
@@ -142,6 +152,7 @@ function dealForm(d, focus, file) {
             if (before.stage !== v.stage) await addLog({ dealId: d.id, type: 'stage', text: `딜 단계 ${before.stage} → ${v.stage}` });
             else if (changed.length) await addLog({ dealId: d.id, type: 'system', text: `딜 정보 수정: ${changed.slice(0, 6).join(', ')}${changed.length > 6 ? ' 외' : ''}` });
             close();
+            await storePending(d.id);
           }
         }, isNew ? '딜을 만들었습니다' : '저장했습니다');
       };
@@ -149,15 +160,48 @@ function dealForm(d, focus, file) {
   });
 }
 
-/* 딜 화면에 파일을 떨어뜨리면 → 그 딜 정보 창을 열고 자동 채우기 */
-document.addEventListener('dragover', e => { if (route().name === 'deal' || route().name === 'deals' || route().name === 'home') e.preventDefault(); });
+/* ---------- 딜 자료 파일 (팀 공용, 팀 키로 암호화해 드라이브에) ---------- */
+const MAX_FILE = 40 * 1048576;
+const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB';
+const canFill = f => /\.(pdf|docx|xlsx|xlsm)$/i.test(f.name || '');
+async function uploadDealFiles(dealId, files, { offerFill = true } = {}) {
+  files = Array.from(files).filter(f => { if (f.size > MAX_FILE) { toast(`${f.name}: 40MB 를 넘어 올릴 수 없습니다`, true); return false; } return true; });
+  if (!files.length) return [];
+  const metas = [];
+  for (const f of files) metas.push(await Store.putFile(f, (i, n) => toast(`${f.name} 올리는 중… ${n > 1 ? Math.round(i / n * 100) + '%' : ''}`)));
+  await Store.update(dealId, d => { d.files = [...(d.files || []), ...metas]; d.docs = (d.docs || []).filter(x => x.url || !metas.some(m => m.name === x.name)); return d; });
+  await addLog({ dealId, type: 'system', text: `자료 올림: ${metas.map(m => m.name).join(', ')}` });
+  toast(`${metas.length}개 파일을 올렸습니다 · 팀원 모두 내려받을 수 있습니다`);
+  const ff = files.find(canFill);
+  if (offerFill && ff && confirm(`'${ff.name}' 내용으로 딜 정보의 빈 칸을 채울까요?\n(채운 칸을 확인한 뒤 저장합니다)`)) dealForm(Store.get(dealId), null, ff, { stored: true });
+  return metas;
+}
+function pickFiles(cb, multiple = true) { const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = multiple; inp.onchange = () => { if (inp.files.length) cb(inp.files); }; inp.click(); }
+A['file-up'] = el => pickFiles(fs => act(() => uploadDealFiles(el.dataset.id, fs)));
+A['file-get'] = el => {
+  const d = Store.get(el.dataset.id), m = (d.files || []).find(x => x.fid === el.dataset.fid); if (!m) return;
+  act(async () => { const bytes = await Store.getFile(m, (i, n) => n > 1 && toast(`${m.name} 받는 중… ${Math.round(i / n * 100)}%`)); download(new Blob([bytes], { type: m.type || 'application/octet-stream' }), m.name); });
+};
+A['file-del'] = el => {
+  const d = Store.get(el.dataset.id), m = (d.files || []).find(x => x.fid === el.dataset.fid); if (!m) return;
+  if (!confirm(`'${m.name}' 을(를) 지울까요? 팀원 모두에게서 사라집니다.`)) return;
+  act(async () => { await Store.delFile(m.fid); await Store.update(d.id, x => { x.files = (x.files || []).filter(f => f.fid !== m.fid); return x; }); await addLog({ dealId: d.id, type: 'system', text: `자료 지움: ${m.name}` }); }, '지웠습니다');
+};
+A['file-fill'] = el => {
+  const d = Store.get(el.dataset.id), m = (d.files || []).find(x => x.fid === el.dataset.fid); if (!m) return;
+  act(async () => { const bytes = await Store.getFile(m); dealForm(d, null, new File([bytes], m.name, { type: m.type }), { stored: true }); });
+};
+
+/* 딜 화면에 파일을 떨어뜨리면 → 자료로 올리고(팀 공용) 그 파일로 빈 칸 채울지 묻는다.
+ * 딜 목록·홈에 떨어뜨리면 → 새 딜 창에서 자동 채우기(저장할 때 자료로 올라감) */
+document.addEventListener('dragover', e => { if (['deal', 'deals', 'home'].includes(route().name)) e.preventDefault(); });
 document.addEventListener('drop', e => {
   if ($('.scrim')) return;
-  const r = route(), f = e.dataTransfer && e.dataTransfer.files[0];
-  if (!f) return;
+  const r = route(), fs = e.dataTransfer && e.dataTransfer.files;
+  if (!fs || !fs.length) return;
   e.preventDefault();
-  if (r.name === 'deal' && Store.get(r.arg)) dealForm(Store.get(r.arg), null, f);
-  else if (r.name === 'deals' || r.name === 'home') dealForm(null, null, f);
+  if (r.name === 'deal' && Store.get(r.arg)) act(() => uploadDealFiles(r.arg, fs));
+  else if (r.name === 'deals' || r.name === 'home') dealForm(null, null, fs[0]);
 });
 
 /* ======================================================================
@@ -282,7 +326,15 @@ function dealInfo(d, taps) {
   const docs = (d.docs || []);
   const t0 = today();
   const meets = taps.filter(t => t.meetDate && t.stage !== 'declined').sort((a, b) => a.meetDate.localeCompare(b.meetDate));
+  // 자료: 팀 공용 파일(내려받기·지우기·이 파일로 채우기) + 링크 + 예전 '자동 입력에 쓴 파일' 이름 + 기타 조건·메모
+  const files = (d.files || []).slice().sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  const filesCard = `<div class="card files-card" style="grid-column:1/-1"><div class="card-h"><h2>자료 · 메모 <span class="muted small">대주 송부 자료 등 - 팀원 누구나 내려받기</span></h2><div style="display:flex;gap:6px"><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="sched">링크·메모 고치기</button><button class="btn sm dark" data-act="file-up" data-id="${d.id}">+ 파일 올리기</button></div></div>
+    ${files.length ? `<div class="flist">${files.map(m => `<div class="frow"><span class="ficon">${/\.pdf$/i.test(m.name) ? 'PDF' : /\.docx?$/i.test(m.name) ? 'DOC' : /\.xls/i.test(m.name) ? 'XLS' : /\.hwp/i.test(m.name) ? 'HWP' : /\.(png|jpe?g)$/i.test(m.name) ? 'IMG' : 'FILE'}</span><div class="grow"><a href="#" data-act="file-get" data-id="${d.id}" data-fid="${m.fid}"><b>${esc(m.name)}</b></a><div class="small muted">${fmtSize(m.size || 0)} · ${esc(when(m.at))} · ${esc(mname(m.by))}</div></div><div class="fbtn">${canFill(m) ? `<button class="btn sm ghost" data-act="file-fill" data-id="${d.id}" data-fid="${m.fid}" title="이 파일 내용으로 딜 정보 빈 칸 채우기">빈 칸 채우기</button>` : ''}<button class="btn sm" data-act="file-get" data-id="${d.id}" data-fid="${m.fid}">내려받기</button><button class="btn sm ghost danger" data-act="file-del" data-id="${d.id}" data-fid="${m.fid}">삭제</button></div></div>`).join('')}</div>`
+      : `<div class="drop-hint">IM · 텀싯 · 감정평가서 등을 여기(또는 이 화면 아무 곳)에 끌어다 놓으세요. 팀 키로 암호화해 보관하고, PDF·워드·엑셀이면 내용으로 딜 정보 빈 칸을 채울 수 있습니다.</div>`}
+    ${docs.length ? `<div class="docs" style="margin-top:10px">${docs.map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.name)}</a>` : `<span class="muted small">📄 ${esc(x.name)} (예전 자동 입력에 쓴 파일 - 보관 안 됨, 다시 올려 주세요)</span>`).join('')}</div>` : ''}
+    ${d.terms ? `<h3 style="margin-top:12px">기타 조건</h3>${bullets(d.terms)}` : ''}${d.memo ? `<h3 style="margin-top:12px">메모</h3><div style="white-space:pre-wrap">${esc(d.memo)}</div>` : ''}</div>`;
   return `<div class="grid g2 info-grid">
+    ${filesCard}
     ${card('금융 조건', 'fin', kv([['대출금액', d.target ? fmt(num(d.target)) + '억원' : ''], ['금리', d.rate], ['수수료', d.fee], ['All-in', d.allin], ['대출기간', d.term], ['LTV', d.ltv], ['상환방법', d.repay], ['자금용도', d.purpose]]))}
     <div class="card"><div class="card-h"><h2>트랜치별 모집 현황</h2><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="tr">고치기</button></div>
       <div class="tbl-wrap"><table class="t stack"><thead><tr><th>트랜치</th><th class="num">목표</th><th>금리</th><th class="num">승인</th><th class="num">심의</th><th class="num">검토</th><th class="num">남은 금액</th><th></th></tr></thead><tbody>${trRows}</tbody></table></div>
@@ -291,9 +343,6 @@ function dealInfo(d, taps) {
     ${card('참여자', 'party', kv([['시행사(차주)', d.sponsor], ['시공사', d.builder], ['신탁사', d.trustee], ['주관·대리', d.arranger], ['연대보증', d.guarantor]]))}
     ${card('사업 개요', 'biz', kv([['사업명', d.project], ['소재지', d.location], ['규모', d.scale], ['대지면적', d.landArea], ['연면적', d.gfa], ['총사업비', d.totalCost]]))}
     ${card('일정', 'sched', kv([['인출 예정', d.drawdown], ['대주 심의 목표', d.committeeDue ? `${d.committeeDue} (${dday(d.committeeDue)})` : ''], ['기표 목표', d.due ? `${d.due} (${daysBetween(t0, d.due) >= 0 ? dday(d.due) : '지남'})` : ''], ['대주 심의', meets.length ? meets.map(t => `${shortDate(t.meetDate)} ${esc(lname(t.lenderId))}`).join('<br>') : '', 1]]))}
-    ${card('자료 · 메모', 'sched', `${docs.length ? `<div class="docs">${docs.map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.name)}</a>` : `<span>📄 ${esc(x.name)} <span class="muted small">${esc(x.at || '')}${x.auto ? ' · 자동 입력에 쓴 파일' : ''}</span></span>`).join('')}</div>` : ''}
-      ${d.terms ? `<h3 style="margin-top:12px">기타 조건</h3>${bullets(d.terms)}` : ''}${d.memo ? `<h3 style="margin-top:12px">메모</h3><div style="white-space:pre-wrap">${esc(d.memo)}</div>` : ''}${!docs.length && !d.terms && !d.memo ? '<div class="muted small">아직 없습니다</div>' : ''}`)}
-    <div class="card drop-card" data-act="deal-file" data-id="${d.id}"><b>📎 IM·텀싯으로 비어 있는 칸 채우기</b><div class="small muted">파일을 이 화면 아무 곳에나 끌어다 놓거나 눌러서 고르세요. 브라우저 안에서만 읽습니다.</div></div>
   </div>`;
 }
 

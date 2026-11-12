@@ -64,6 +64,13 @@ async function open_(key, b64) {
   const all = b64d(String(b64).replace(/^~/, ''));
   return JSON.parse(dec.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12))));
 }
+// 파일용: 바이트 그대로 잠그고 연다 (iv 12바이트 + 암호문)
+async function sealBytes(key, u8) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, u8));
+  const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12); return all;
+}
+async function openBytes(key, all) { return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12))); }
 const kidOf = email => sha256hex('dealdesk-kid:' + String(email).trim().toLowerCase());
 const tokOf = kB64 => sha256hex('dealdesk-token:' + kB64);
 // 비밀번호로 팀 키를 감싼 꾸러미
@@ -125,6 +132,10 @@ class MockApi {
       this.saveDb(db);
       return { ok: true, results };
     }
+    // 첨부 조각은 localStorage(5MB)에 못 넣으니 이 창 메모리에만 (시험용)
+    if (d.op === 'fput') { (MockApi.files = MockApi.files || new Map()).set(d.fid + '.' + d.idx, d.data); return { ok: true }; }
+    if (d.op === 'fget') { const v = (MockApi.files || new Map()).get(d.fid + '.' + d.idx); return v ? { ok: true, data: v } : { ok: false, error: 'not found' }; }
+    if (d.op === 'fdel') { for (const k of [...(MockApi.files || new Map()).keys()]) if (k.startsWith(d.fid + '.')) MockApi.files.delete(k); return { ok: true }; }
     if (d.op === 'keyset') { db.keys[d.kid] = d.blob; this.saveDb(db); return { ok: true }; }
     if (d.op === 'keydel') { delete db.keys[d.kid]; this.saveDb(db); return { ok: true }; }
     return { ok: false, error: 'unknown op' };
@@ -225,6 +236,36 @@ const Store = {
     }
     return this.putMany(ops);
   },
+
+  /* 첨부 파일: 팀 키로 통째 암호화 → base64 → 약 4MB 글자 조각으로 올린다. 메타(이름·크기·조각 수)는 딜 레코드에 */
+  CHUNK: 4000000,
+  fileCache: new Map(),
+  async putFile(file, onProgress) {
+    const plain = new Uint8Array(await file.arrayBuffer());
+    const b64 = b64e(await sealBytes(this.key, plain));
+    const fid = 'f' + uid() + uid(), n = Math.max(1, Math.ceil(b64.length / this.CHUNK));
+    for (let i = 0; i < n; i++) {
+      if (onProgress) onProgress(i, n);
+      const j = await this.req({ op: 'fput', fid, idx: i, total: n, data: b64.slice(i * this.CHUNK, (i + 1) * this.CHUNK) });
+      if (!j.ok) { this.req({ op: 'fdel', fid }).catch(() => { }); throw new Error(j.error === 'unknown op' ? '저장소(Apps Script)가 첨부를 아직 모릅니다. 새 코드로 다시 배포해 주세요.' : '올리기 실패: ' + (j.error || '')); }
+    }
+    this.fileCache.set(fid, plain);
+    return { fid, name: file.name, size: file.size, type: file.type || '', chunks: n, at: new Date().toISOString(), by: this.mid };
+  },
+  async getFile(meta, onProgress) {
+    if (this.fileCache.has(meta.fid)) return this.fileCache.get(meta.fid);
+    let b64 = '';
+    for (let i = 0; i < meta.chunks; i++) {
+      if (onProgress) onProgress(i, meta.chunks);
+      const j = await this.req({ op: 'fget', fid: meta.fid, idx: i });
+      if (!j.ok) throw new Error(j.error === 'not found' ? '파일을 찾을 수 없습니다 (지워졌거나 올리기가 끝나지 않았습니다)' : (j.error === 'unknown op' ? '저장소(Apps Script)가 첨부를 아직 모릅니다. 새 코드로 다시 배포해 주세요.' : '받기 실패'));
+      b64 += j.data;
+    }
+    const plain = await openBytes(this.key, b64d(b64));
+    this.fileCache.set(meta.fid, plain);
+    return plain;
+  },
+  async delFile(fid) { this.fileCache.delete(fid); await this.req({ op: 'fdel', fid }); },
 
   async remove(id) {
     const cur = this.recs.get(id);

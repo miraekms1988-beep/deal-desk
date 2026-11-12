@@ -12,6 +12,10 @@
  *   4. 나온 웹 앱 주소(…/exec)를 web/config.js 의 API_URL 에 넣는다
  *   5. 페이지를 열면 '팀 만들기' 화면이 나온다 - 첫 사람이 관리자가 된다
  *
+ * 첨부 파일은 내 드라이브 'DealDesk 첨부 (암호문)' 폴더에 암호문 조각으로 쌓인다 (fput/fget/fdel).
+ * 코드를 고치면: 배포 > 배포 관리 > 연필 > 버전 '새 버전' > 배포 (주소 유지). 드라이브 권한이 새로 필요하면
+ * 편집기에서 authorizeDrive 를 한 번 실행해 승인한다.
+ *
  * 요청 허락 표(tok)는 팀 키에서 뽑은 값이다. 팀 만들기 때 한 번 저장되고 그 뒤 모든 요청이 확인한다.
  * 비밀번호 꾸러미(keys)는 tok 없이 읽을 수 있다 - 비밀번호로 감싼 암호문이라 그 자체로는 쓸모가 없다.
  */
@@ -122,6 +126,27 @@ function doPost(e) {
       return json({ ok: true, results: res });
     }
 
+    // 첨부 파일: 브라우저가 팀 키로 암호화한 뒤 조각(최대 약 4MB 글자)으로 보낸다. 드라이브 폴더에 조각마다 파일 하나.
+    if (d.op === 'fput') {
+      var fid = safeId(d.fid), idx = Number(d.idx) || 0, data = String(d.data || '');
+      if (!fid || !data) { return json({ ok: false, error: 'bad request' }); }
+      var folder = fileFolder(), name = fid + '.' + idx;
+      var old = folder.getFilesByName(name); while (old.hasNext()) { old.next().setTrashed(true); }
+      folder.createFile(name, data, MimeType.PLAIN_TEXT);
+      return json({ ok: true });
+    }
+    if (d.op === 'fget') {
+      var it2 = fileFolder().getFilesByName(safeId(d.fid) + '.' + (Number(d.idx) || 0));
+      if (!it2.hasNext()) { return json({ ok: false, error: 'not found' }); }
+      return json({ ok: true, data: it2.next().getBlob().getDataAsString() });
+    }
+    if (d.op === 'fdel') {
+      var fid2 = safeId(d.fid); if (!fid2) { return json({ ok: false, error: 'bad request' }); }
+      var all = fileFolder().searchFiles("title contains '" + fid2 + ".'");
+      while (all.hasNext()) { var f = all.next(); if (f.getName().indexOf(fid2 + '.') === 0) { f.setTrashed(true); } }
+      return json({ ok: true });
+    }
+
     // 팀원 꾸러미 넣기·빼기 (관리자 화면에서)
     if (d.op === 'keyset' || d.op === 'keydel') {
       var ks2 = sheet(KEYS, ['kid', 'blob', 'at']);
@@ -144,6 +169,18 @@ function doPost(e) {
 }
 
 function doGet() { return json({ ok: false, error: 'use POST' }); }
+
+// 첨부 파일 폴더 (내 드라이브 > 'DealDesk 첨부 (암호문)') - 처음 부를 때 만든다
+function fileFolder() {
+  var props = PropertiesService.getScriptProperties(), id = props.getProperty('FOLDER');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { } }
+  var f = DriveApp.createFolder('DealDesk 첨부 (암호문)');
+  props.setProperty('FOLDER', f.getId());
+  return f;
+}
+function safeId(s) { return String(s || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40); }
+// 편집기에서 한 번 실행하면 드라이브 권한 승인 창이 뜬다
+function authorizeDrive() { fileFolder(); }
 
 function sheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

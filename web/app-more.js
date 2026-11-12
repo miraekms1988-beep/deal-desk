@@ -449,7 +449,8 @@ function mailStep2(tpls) {
       <div class="field"><label>본문</label><div class="merge-chips">${['호칭', '기관', '담당자', '직함', '딜명', '보내는사람', '내직함', '내연락처'].map(k => `<button data-act="m-ins" data-k="${k}" type="button">{${k}}</button>`).join('')}<span class="small muted">누르면 커서 자리에 들어갑니다 · 받는 사람마다 바뀝니다</span></div>
         <textarea class="input" id="m-body" data-inp="m-body" style="min-height:280px">${esc(mail.body)}</textarea></div>
       <label class="check"><input type="checkbox" data-chg="m-sig" ${mail.sig ? 'checked' : ''}> 내 서명 붙이기 <a href="#/settings" class="small">(서명 고치기)</a></label>
-      <div class="field"><label>첨부 (IM 등) - 이 PC 안에서만 쓰이고 저장소로 올라가지 않습니다</label><input type="file" multiple data-chg="m-files">
+      ${((Store.get(mail.dealId) || {}).files || []).length ? `<div class="field"><label>딜 자료에서 첨부 <span class="muted">- ${esc(dname(mail.dealId))} 자료 목록</span></label><div class="chips">${Store.get(mail.dealId).files.map(m => `<label class="chip click ${mail.files.some(f => f.fid === m.fid) ? 'on' : ''}"><input type="checkbox" data-chg="m-dfile" value="${m.fid}" ${mail.files.some(f => f.fid === m.fid) ? 'checked' : ''} style="display:none">📎 ${esc(m.name)} <span class="muted">${fmtSize(m.size || 0)}</span></label>`).join('')}</div></div>` : ''}
+      <div class="field"><label>다른 파일 첨부 - 이 PC 안에서만 쓰이고 저장소로 올라가지 않습니다</label><input type="file" multiple data-chg="m-files">
         ${mail.files.length ? `<div class="small" style="margin-top:6px">${mail.files.map((f, i) => `📎 ${esc(f.name)} <span class="muted">${(f.size / 1048576).toFixed(1)}MB</span> <a href="#" data-act="m-unfile" data-i="${i}">빼기</a>`).join('<br>')}</div>` : ''}
         ${total > 15 * 1048576 ? '<div class="notice small" style="margin-top:6px">첨부가 15MB 를 넘습니다. 회사 메일 용량 제한에 걸릴 수 있어요.</div>' : ''}</div>
       <div style="display:flex;justify-content:space-between;margin-top:6px"><button class="btn" data-act="mail-step" data-k="1">← 받는 사람</button><button class="btn dark" data-act="mail-next3" ${mail.subject.trim() && mail.body.trim() ? '' : 'disabled'}>다음: 보내기 →</button></div>
@@ -473,6 +474,12 @@ A['m-nextp'] = () => { const n = validRecips().length; if (n) { mail.pi = (mail.
 C['m-files'] = async el => {
   for (const f of el.files) { try { mail.files.push({ name: f.name, size: f.size, b64: await fileToB64(f) }); } catch (e) { toast(`${f.name} 을(를) 읽지 못했습니다`, true); } }
   render();
+};
+C['m-dfile'] = el => {
+  const fid = el.value, on = el.checked;
+  if (!on) { mail.files = mail.files.filter(f => f.fid !== fid); return render(); }
+  const m = ((Store.get(mail.dealId) || {}).files || []).find(x => x.fid === fid); if (!m) return;
+  act(async () => { const bytes = await Store.getFile(m, (i, n) => n > 1 && toast(`${m.name} 받는 중… ${Math.round(i / n * 100)}%`)); mail.files.push({ name: m.name, size: m.size, fid, b64: b64e(bytes) }); render(); });
 };
 A['m-unfile'] = el => { mail.files.splice(+el.dataset.i, 1); render(); };
 A['tpl-save'] = async () => {
