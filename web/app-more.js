@@ -1,6 +1,8 @@
 /* 딜 데스크 - 화면 2: 대주 DB · 대주 리스트 · 메일 · 활동 · 설정 */
 'use strict';
 
+// 담당자 이름을 모두 (많으면 셋까지 + 외 N명)
+const cnames = L => { const cs = (L.contacts || []).filter(c => c.name); return esc(cs.slice(0, 3).map(c => [c.name, c.title].filter(Boolean).join(' ')).join(', ')) + (cs.length > 3 ? ` <span class="muted small">외 ${cs.length - 3}명</span>` : ''); };
 /* ======================================================================
  * 대주 DB
  * ==================================================================== */
@@ -15,9 +17,9 @@ VIEWS.lenders = () => {
     <div class="actions"><button class="btn" data-act="lender-paste">엑셀에서 붙여넣기</button><button class="btn dark" data-act="lender-new">+ 대주 등록</button></div></div>
   <div class="toolbar"><div class="search"><input class="input" id="lq" data-inp="lq" placeholder="기관·담당자·이메일 검색" value="${esc(ui.lenderQ)}"></div></div>
   <div class="chips" style="margin-bottom:12px"><span class="chip click ${!ty ? 'on' : ''}" data-act="lty" data-k="">전체 ${all.length}</span>${LENDER_TYPES.filter(t => counts[t]).map(t => `<span class="chip click ${ty === t ? 'on' : ''}" data-act="lty" data-k="${t}">${t} ${counts[t]}</span>`).join('')}</div>
-  ${all.length && isPhone() ? `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<div class="mrow" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}"><div class="mtop"><b>${esc(L.name)}</b><span class="chip">${esc(L.type || '')}</span><span class="r small muted">${[s.live ? '진행 ' + s.live : '', s.ok ? '승인 ' + s.ok : '', s.no ? '불참 ' + s.no : ''].filter(Boolean).join(' · ')}</span></div>${c.name || c.phone ? `<div class="msub">${esc([c.name, c.title].filter(Boolean).join(' '))}${(L.contacts || []).length > 1 ? ` 외 ${L.contacts.length - 1}` : ''}${c.phone ? ` · <a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()">${esc(c.phone)}</a>` : ''}</div>` : ''}</div>`; }).join('') || '<div class="empty">검색 결과가 없습니다</div>'}</div></div>`
+  ${all.length && isPhone() ? `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<div class="mrow" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}"><div class="mtop"><b>${esc(L.name)}</b><span class="chip">${esc(L.type || '')}</span><span class="r small muted">${[s.live ? '진행 ' + s.live : '', s.ok ? '승인 ' + s.ok : '', s.no ? '불참 ' + s.no : ''].filter(Boolean).join(' · ')}</span></div>${c.name || c.phone ? `<div class="msub">${cnames(L)}${c.phone ? ` · <a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()">${esc(c.phone)}</a>` : ''}</div>` : ''}</div>`; }).join('') || '<div class="empty">검색 결과가 없습니다</div>'}</div></div>`
   : all.length ? `<div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>기관</th><th>유형</th><th>담당자</th><th>휴대폰</th><th>이메일</th><th class="num">진행 딜</th><th class="num">승인</th><th class="num">불참</th><th>성향·조건</th></tr></thead><tbody>
-    ${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<tr class="row" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}" style="cursor:pointer"><td><b>${esc(L.name)}</b></td><td>${esc(L.type || '')}</td><td>${esc([c.name, c.title].filter(Boolean).join(' '))}${(L.contacts || []).length > 1 ? ` <span class="muted small">+${L.contacts.length - 1}</span>` : ''}</td><td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td class="num">${s.live || ''}</td><td class="num">${s.ok || ''}</td><td class="num">${s.no || ''}</td><td class="ell small muted">${esc(L.prefs || '')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">검색 결과가 없습니다</td></tr>'}
+    ${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<tr class="row" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}" style="cursor:pointer"><td><b>${esc(L.name)}</b></td><td>${esc(L.type || '')}</td><td class="wrap" style="min-width:140px">${cnames(L)}</td><td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td class="num">${s.live || ''}</td><td class="num">${s.ok || ''}</td><td class="num">${s.no || ''}</td><td class="ell small muted">${esc(L.prefs || '')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">검색 결과가 없습니다</td></tr>'}
   </tbody></table></div></div>` : `<div class="card empty"><b>대주가 아직 없습니다</b>설정 › '기본 대주 목록 불러오기'로 은행·캐피탈·저축은행 등 180여 곳을 한 번에 넣거나,<br>기존 연락처 엑셀을 '엑셀에서 붙여넣기'로 가져오세요.</div>`}`;
 };
 I.lq = el => { ui.lenderQ = el.value; const pos = el.selectionStart; render(); const n = $('#lq'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } };
@@ -33,11 +35,12 @@ function lenderForm(L, after) {
       <div class="field"><label>유형</label><select class="input" id="l-type">${LENDER_TYPES.map(t => `<option ${L.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
       <div class="field"><label>성향·조건 (다음 딜 고를 때 참고)</label><textarea class="input" id="l-prefs" style="min-height:70px" placeholder="예: 수도권만, 1군 시공사 책준 필수, 건당 200억 한도, 선순위만">${esc(L.prefs || '')}</textarea></div>
       <div class="field"><label>메모</label><textarea class="input" id="l-memo" style="min-height:50px">${esc(L.memo || '')}</textarea></div>
-      ${isNew ? `<h3>담당자 (선택)</h3><div class="row3"><div class="field"><label>이름</label><input class="input" id="c-name"></div><div class="field"><label>직함</label><input class="input" id="c-title"></div><div class="field"><label>부서</label><input class="input" id="c-dept"></div></div>
-      <div class="row2"><div class="field"><label>휴대폰</label><input class="input" id="c-phone"></div><div class="field"><label>이메일</label><input class="input" id="c-email" type="email"></div></div>` : ''}`,
+      ${isNew ? `<h3>담당자 <span class="muted small">- 여러 명 넣을 수 있습니다</span></h3><div id="c-rows"></div><button class="btn sm" id="c-more" type="button">+ 담당자 더</button>` : ''}`,
     foot: `${isNew ? '' : '<button class="btn danger" data-del style="margin-right:auto">삭제</button>'}<button class="btn" data-no>취소</button><button class="btn dark" data-ok>${isNew ? '등록' : '저장'}</button>`,
     onMount: (el, close) => {
       el.querySelector('[data-no]').onclick = close;
+      const crow = () => `<div class="c-row contact" style="display:block"><div class="row3"><div class="field"><label>이름</label><input class="input" data-c="name"></div><div class="field"><label>직함</label><input class="input" data-c="title"></div><div class="field"><label>부서</label><input class="input" data-c="dept"></div></div><div class="row2"><div class="field"><label>휴대폰</label><input class="input" data-c="phone"></div><div class="field"><label>이메일</label><input class="input" data-c="email" type="email"></div></div></div>`;
+      if (isNew) { $('#c-rows', el).innerHTML = crow(); $('#c-more', el).onclick = () => { $('#c-rows', el).insertAdjacentHTML('beforeend', crow()); $$('.c-row', el).pop().querySelector('input').focus(); }; }
       const del = el.querySelector('[data-del]');
       if (del) del.onclick = async () => {
         const n = Store.all('tap').filter(t => t.lenderId === L.id).length;
@@ -52,8 +55,8 @@ function lenderForm(L, after) {
         await act(async () => {
           let out;
           if (isNew) {
-            const c = { cid: uid(), name: val(el, 'c-name'), title: val(el, 'c-title'), dept: val(el, 'c-dept'), phone: val(el, 'c-phone'), email: val(el, 'c-email'), memo: '' };
-            out = await Store.create('lender', { ...v, contacts: c.name || c.email ? [c] : [] });
+            const cs = $$('.c-row', el).map(r => { const g = k => r.querySelector(`[data-c="${k}"]`).value.trim(); return { cid: uid(), name: g('name'), title: g('title'), dept: g('dept'), phone: g('phone'), email: g('email'), memo: '' }; }).filter(c => c.name || c.email || c.phone);
+            out = await Store.create('lender', { ...v, contacts: cs });
           } else out = await Store.update(L.id, x => ({ ...x, ...v }));
           close(); if (after) after(out);
         }, isNew ? '등록했습니다' : '저장했습니다');
@@ -120,6 +123,21 @@ function splitNameTitle(s) {
   for (const t of TITLES) if (s.length > t.length + 1 && s.endsWith(t)) return { name: s.slice(0, -t.length), title: t };
   return { name: s, title: '' };
 }
+// 한 칸에 여러 사람: '채형주 부장 서형진 팀장 윤형로 계장' / '홍길동, 김철수' / 줄바꿈
+function splitPeople(s) {
+  s = String(s || '').trim(); if (!s) return [];
+  const isTitle = w => TITLES.some(t => w === t || (w.endsWith(t) && w.length <= t.length + 1 && !/[가-힣]{3}/.test(w.slice(0, -t.length))));
+  const toks = s.split(/[\s,，/·;\n]+/).filter(Boolean);
+  const out = [];
+  for (const w of toks) {
+    if (isTitle(w) && out.length && !out[out.length - 1].title) out[out.length - 1].title = w;
+    else { const nt = splitNameTitle(w); out.push({ name: nt.name, title: nt.title }); }
+  }
+  // 성·이름이 띄어 쓰인 경우('홍 길동')처럼 한 글자 토막은 앞사람에 붙인다
+  return out.reduce((a, p) => { if (a.length && p.name.length === 1 && !a[a.length - 1].title) a[a.length - 1].name += p.name; else a.push(p); return a; }, []);
+}
+const PHONE_RE = /(?:\+82[-\s]?)?0\d{1,2}[-\s.)]?\d{3,4}[-\s.]?\d{4}/g;
+const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
 function guessType(name) {
   for (const [ty, arr] of Object.entries(SEED_LENDERS)) if (arr.some(n => normName(n) === normName(name))) return ty;
   const rules = [['저축은행', '저축은행'], ['캐피탈', '캐피탈'], ['커머셜', '캐피탈'], ['카드', '카드'], ['증권', '증권'], ['투자증권', '증권'], ['생명', '보험'], ['화재', '보험'], ['손해보험', '보험'], ['보험', '보험'], ['새마을', '상호금융'], ['신협', '상호금융'], ['농협', '상호금융'], ['수협', '상호금융'], ['자산운용', '자산운용'], ['운용', '자산운용'], ['펀드', '자산운용'], ['리츠', '자산운용'], ['공제', '연기금·공제회'], ['연금', '연기금·공제회'], ['은행', '은행']];
@@ -132,17 +150,29 @@ function parsePaste(text) {
   const cells = lines.map(l => l.split('\t').map(c => c.trim()));
   const H = { org: /^(기관|기관명|대주|금융기관|회사|회사명)$/, type: /^(유형|구분|대주유형|업권)$/, person: /^(담당자|성명|이름|담당)$/, title: /^(직함|직급|직위|직책)$/, dept: /^(부서|부서명|팀)$/, phone: /(휴대폰|핸드폰|연락처|전화|휴대전화|H\.?P|mobile)/i, email: /(이메일|메일|e-?mail)/i };
   let hi = cells.findIndex(r => r.some(c => H.org.test(c)));
+  // '구분 | 금액 | 담당자 | 연락처' 처럼 기관 칸 이름이 '구분'인 표 (선릉 대주 리스트 등)
+  if (hi < 0) hi = cells.findIndex(r => r.some(c => H.person.test(c)) && r.some(c => H.phone.test(c) || H.email.test(c)));
   let map;
-  if (hi >= 0) { map = {}; cells[hi].forEach((c, i) => { for (const k in H) if (map[k] === undefined && H[k].test(c)) map[k] = i; }); }
+  if (hi >= 0) {
+    map = {}; cells[hi].forEach((c, i) => { for (const k in H) if (map[k] === undefined && H[k].test(c)) map[k] = i; });
+    if (map.org === undefined && map.type !== undefined) { map.org = map.type; delete map.type; }
+  }
   else { hi = -1; map = { org: 0, type: 1, person: 2, title: 3, phone: 4, email: 5 }; }
   const out = []; let lastType = '';
   for (const r of cells.slice(hi + 1)) {
     const g = k => map[k] === undefined ? '' : (r[map[k]] || '').trim();
     let org = g('org'); if (!org || /^(합계|소계|총계)/.test(org)) continue;
     let type = g('type'); if (type && LENDER_TYPES.includes(type)) lastType = type; else if (type && /은행|캐피탈|저축|증권|보험|상호|운용|공제|카드/.test(type)) { lastType = guessType(type); } type = (type && LENDER_TYPES.includes(type)) ? type : (lastType && !/기타/.test(lastType) ? lastType : guessType(org));
-    const nt = splitNameTitle(g('person'));
-    const emailCell = g('email') || (r.find(c => /@/.test(c)) || '');
-    out.push({ org, type: guessType(org) !== '기타' ? guessType(org) : type, name: nt.name, title: g('title') || nt.title, dept: g('dept'), phone: g('phone'), email: (emailCell.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/) || [''])[0] });
+    const people = splitPeople(g('person'));
+    const phones = g('phone').match(PHONE_RE) || (g('phone') ? [g('phone')] : []);
+    const emails = (g('email') || (r.find(c => /@/.test(c)) || '')).match(EMAIL_RE) || [];
+    const ty = guessType(org) !== '기타' ? guessType(org) : type;
+    // 사람이 여럿이면 전화·이메일도 순서대로 짝지어 한 사람씩 (짝이 모자라면 빈칸)
+    const n = Math.max(people.length, 1);
+    for (let i = 0; i < n; i++) {
+      const p = people[i] || { name: '', title: '' };
+      out.push({ org, type: ty, name: p.name, title: (n === 1 && g('title')) || p.title, dept: g('dept'), phone: (phones[i] || (n === 1 ? phones[0] : '') || '').trim(), email: emails[i] || (n === 1 ? emails[0] || '' : '') });
+    }
   }
   return out;
 }
@@ -323,14 +353,14 @@ A['mail-list'] = el => { const l = Store.get(el.dataset.id); goMail({ items: l.i
 A['mail-lender'] = el => goMail({ items: lenderContacts(el.dataset.id), src: '대주' });
 A['mail-one'] = el => { closeDrawer(); goMail({ dealId: el.dataset.deal, items: [{ lenderId: el.dataset.lender, contactId: el.dataset.contact }], src: '대주' }); };
 
-function myFields() { const m = me(); return { 보내는사람: m.name || '', 내직함: m.title || '', 내부서: m.dept || CFG.TEAM || '', 내연락처: m.phone || '', 내이메일: m.email || '', 날짜: today() }; }
+function myFields() { return { ...sigFields(me()), 날짜: today() }; }
 function fieldsFor(r) {
   const d = Store.get(mail.dealId) || {};
   return { ...myFields(), 기관: r.org || '', 담당자: r.name || '', 직함: r.title || '', 호칭: r.name ? `${r.name} ${r.title || ''}`.trim() + '님' : `${r.org || ''} 담당자님`, 딜명: d.name || '' };
 }
 function renderMail(r) {
   const f = fieldsFor(r);
-  const sig = mail.sig ? mergeFields(me().sig || DEFAULT_SIG, f) : '';
+  const sig = mail.sig ? sigFor(me()) : '';
   const text = mergeFields(mail.body, f) + (sig ? '\n\n' + sig : '');
   return { to: r.email, toName: r.name ? `${r.name} ${r.title || ''}`.trim() : r.org, subject: mergeFields(mail.subject, f), text, html: textToHtml(text) };
 }
@@ -559,9 +589,11 @@ VIEWS.settings = () => {
   <div class="grid g2">
     <div class="card"><h2>내 정보 · 서명</h2>
       <div class="row2"><div class="field"><label>이름</label><input class="input" id="p-name" value="${esc(m.name || '')}"></div><div class="field"><label>직함</label><input class="input" id="p-title" value="${esc(m.title || '')}"></div></div>
-      <div class="row2"><div class="field"><label>부서</label><input class="input" id="p-dept" value="${esc(m.dept || '')}"></div><div class="field"><label>휴대폰</label><input class="input" id="p-phone" value="${esc(m.phone || '')}"></div></div>
+      <div class="row2"><div class="field"><label>부서</label><input class="input" id="p-dept" value="${esc(m.dept || '')}" placeholder="${esc(CFG.TEAM || '')}" data-inp="sigprev"></div><div class="field"><label>휴대폰 (M)</label><input class="input" id="p-phone" value="${esc(m.phone || '')}" placeholder="010-0000-0000" data-inp="sigprev"></div></div>
+      <div class="row2"><div class="field"><label>회사 전화 (T)</label><input class="input" id="p-tel" value="${esc(m.tel || '')}" placeholder="02-3774-0000" data-inp="sigprev"></div><div class="field"><label>팩스 (F) <span class="muted">- 비우면 ${esc(CFG.FAX_PREFIX || '')} + 회사 전화 끝 네 자리</span></label><input class="input" id="p-fax" value="${esc(m.fax || '')}" placeholder="자동" data-inp="sigprev"></div></div>
       <div class="field"><label>메일 보내는 방법 (기본)</label><select class="input" id="p-mode">${METHODS.map(([k, t]) => `<option value="${k}" ${(m.mailMode || 'outlook-pc') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="field"><label>서명 ({보내는사람} {내직함} {내부서} {내연락처} {내이메일} 사용 가능)</label><textarea class="input" id="p-sig" style="min-height:110px">${esc(m.sig || DEFAULT_SIG)}</textarea></div>
+      <div class="field"><label>메일 서명 <span class="muted">- 팀 공통 양식에 위 정보가 자동으로 들어갑니다</span></label><div class="preview" id="sig-prev" style="white-space:pre-wrap;font-size:13px;line-height:1.6">${esc(sigFor(m))}</div>
+        <details style="margin-top:6px"><summary class="small muted" style="cursor:pointer">서명을 직접 고치기 (비우면 팀 양식)</summary><textarea class="input" id="p-sig" data-inp="sigprev" style="min-height:120px;margin-top:6px" placeholder="{이름띄움} {내부서} {내직함} {회사} {주소} {회사전화} {내연락처} {팩스} {내이메일} 사용 가능">${esc(m.sigCustom || '')}</textarea></details></div>
       <button class="btn dark" data-act="profile-save">저장</button></div>
     <div class="grid">
       <div class="card"><h2>비밀번호 바꾸기</h2>
@@ -578,7 +610,9 @@ VIEWS.settings = () => {
   <div class="card" style="margin-top:16px"><h2>백업</h2><div class="small muted" style="margin-bottom:10px">팀 키를 잃으면(모든 사람이 비밀번호를 잊으면) 데이터를 열 수 없습니다. 팀 키를 안전한 곳에 한 번 보관해 두세요.</div>
     <button class="btn" data-act="show-key">팀 키 보기</button> <button class="btn" data-act="backup">전체 내용 JSON 내려받기</button></div>` : ''}`;
 };
-A['profile-save'] = () => act(() => Store.update(Store.mid, m => ({ ...m, name: $('#p-name').value.trim(), title: $('#p-title').value.trim(), dept: $('#p-dept').value.trim(), phone: $('#p-phone').value.trim(), mailMode: $('#p-mode').value, sig: $('#p-sig').value })), '저장했습니다');
+const profileForm = () => ({ name: $('#p-name').value.trim(), title: $('#p-title').value.trim(), dept: $('#p-dept').value.trim(), phone: $('#p-phone').value.trim(), tel: $('#p-tel').value.trim(), fax: $('#p-fax').value.trim(), mailMode: $('#p-mode').value, sigCustom: $('#p-sig').value });
+I.sigprev = () => { const p = $('#sig-prev'); if (p) p.textContent = sigFor({ ...me(), ...profileForm() }); };
+A['profile-save'] = () => act(() => Store.update(Store.mid, m => ({ ...m, ...profileForm() })), '저장했습니다 · 메일 서명에 바로 쓰입니다');
 A['pw-save'] = async () => {
   const a = $('#pw1').value, b = $('#pw2').value;
   if (a.length < 10) return toast('10자 이상으로 해 주세요', true);
@@ -606,7 +640,8 @@ A['member-add'] = () => {
     title: '팀원 등록',
     body: `<div class="row2"><div class="field"><label>이름</label><input class="input" id="n-name"></div><div class="field"><label>직함</label><input class="input" id="n-title"></div></div>
       <div class="field"><label>회사 이메일 (로그인 아이디)</label><input class="input" id="n-email" type="email"></div>
-      <div class="row2"><div class="field"><label>휴대폰</label><input class="input" id="n-phone"></div><div class="field"><label>권한</label><select class="input" id="n-role">${ROLES.map(([k, t]) => `<option value="${k}" ${k === 'member' ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
+      <div class="row2"><div class="field"><label>휴대폰</label><input class="input" id="n-phone" placeholder="010-0000-0000"></div><div class="field"><label>회사 전화</label><input class="input" id="n-tel" placeholder="02-3774-0000"></div></div>
+      <div class="row2"><div class="field"><label>권한</label><select class="input" id="n-role">${ROLES.map(([k, t]) => `<option value="${k}" ${k === 'member' ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
       <div class="small muted">팀장·관리자는 팀원 등록·권한 변경·사용 중지·팀 키 백업을 할 수 있습니다.</div>`,
     foot: `<button class="btn" data-no>취소</button><button class="btn dark" data-ok>등록하고 임시 비밀번호 만들기</button>`,
     onMount: (el, close) => {
@@ -616,7 +651,7 @@ A['member-add'] = () => {
         if (!name || !/@/.test(email)) return toast('이름과 이메일을 넣어 주세요', true);
         if (members().some(x => x.email === email && x.active !== false)) return toast('이미 등록된 이메일입니다', true);
         await act(async () => {
-          const mem = await Store.create('member', { name, title: val(el, 'n-title'), dept: me().dept || CFG.TEAM || '', phone: val(el, 'n-phone'), tel: '', email, role: val(el, 'n-role'), active: true, mailMode: 'outlook-pc', sig: DEFAULT_SIG });
+          const mem = await Store.create('member', { name, title: val(el, 'n-title'), dept: me().dept || CFG.TEAM || '', phone: val(el, 'n-phone'), tel: val(el, 'n-tel'), fax: '', email, role: val(el, 'n-role'), active: true, mailMode: 'outlook-pc', sig: DEFAULT_SIG });
           close(); await issueKey(mem);
         });
       };

@@ -245,7 +245,32 @@ function gateSetup() {
     } catch (x) { err(x.message || String(x)); }
   };
 }
-const DEFAULT_SIG = `{보내는사람} {내직함}\n${CFG.COMPANY || ''} {내부서}\nM. {내연락처}\nE. {내이메일}`;
+const DEFAULT_SIG = '';   // 비워 두면 팀 공통 서명(sigFor)을 쓴다
+
+/* ---------- 메일 서명: 팀 공통 양식에 사람마다 정보만 바꿔 넣는다 ----------
+ * 구 민 섭
+ * (빈 줄 둘)
+ * 대체투자금융1본부2팀/ 수석매니저/ 미래에셋증권
+ * (04539) 서울특별시 중구 …
+ * T. 02 3774 8336  M.  010 9981 8130 F.  0505 085 8336
+ * E. ...                                                     */
+const phoneSp = s => String(s || '').trim().replace(/[-.)(]/g, ' ').replace(/\s+/g, ' ').trim();
+const spacedName = s => String(s || '').replace(/\s+/g, '').split('').join(' ');
+function faxOf(m) {
+  if (m.fax) return phoneSp(m.fax);
+  const d = String(m.tel || '').replace(/\D/g, '');
+  return d.length >= 4 && CFG.FAX_PREFIX ? `${CFG.FAX_PREFIX} ${d.slice(-4)}` : '';
+}
+function sigFields(m) {
+  return { 보내는사람: m.name || '', 이름띄움: spacedName(m.name), 내직함: m.title || '', 내부서: m.dept || CFG.TEAM || '', 회사: CFG.COMPANY || '', 주소: CFG.ADDRESS || '', 회사전화: phoneSp(m.tel), 내연락처: phoneSp(m.phone), 팩스: faxOf(m), 내이메일: m.email || '' };
+}
+function sigFor(m) {
+  m = m || {};
+  if (m.sigCustom && m.sigCustom.trim()) return mergeFields(m.sigCustom, sigFields(m));
+  const f = sigFields(m);
+  const tel = [f.회사전화 && `T. ${f.회사전화}`, f.내연락처 && `M.  ${f.내연락처}`, f.팩스 && `F.  ${f.팩스}`].filter(Boolean);
+  return [f.이름띄움, '', '', [f.내부서, f.내직함, f.회사].filter(Boolean).join('/ '), f.주소, tel.length ? tel.join('  ').replace('  F.', ' F.') : '', f.내이메일 && `E. ${f.내이메일}`].filter((l, i) => i < 3 || l).join('\n');
+}
 const DEFAULT_TPLS = [
   { name: 'IM 송부 · 참여 검토 요청', subject: `[${CFG.COMPANY || ''}] {딜명} 대주 참여 검토 요청`, body: `{호칭}, 안녕하십니까.\n${CFG.COMPANY || ''} {내부서} {보내는사람}입니다.\n\n{딜명} 관련하여 대주 참여 검토를 요청드리고자 연락드립니다.\n첨부드린 IM 확인 부탁드리며, 검토 가능 여부와 예상 참여 규모를 회신 주시면 감사하겠습니다.\n\n궁금하신 사항은 언제든 편하게 연락 주십시오.\n감사합니다.` },
   { name: '추가 자료 송부', subject: `[${CFG.COMPANY || ''}] {딜명} 추가 자료 송부`, body: `{호칭}, 안녕하십니까.\n${CFG.COMPANY || ''} {보내는사람}입니다.\n\n{딜명} 관련 요청하신 자료 첨부와 같이 송부드립니다.\n검토에 참고 부탁드립니다.\n\n감사합니다.` },

@@ -311,7 +311,7 @@ function download(blob, name) {
 /* ---------- 메일 ---------- */
 // 받는 사람 한 명에게 맞춘 제목·본문 ({기관} 같은 칸 채우기)
 function mergeFields(text, f) {
-  return String(text || '').replace(/\{(기관|담당자|직함|호칭|딜명|보내는사람|내직함|내부서|내연락처|내이메일|날짜)\}/g, (_, k) => f[k] ?? '');
+  return String(text || '').replace(/\{(기관|담당자|직함|호칭|딜명|보내는사람|이름띄움|내직함|내부서|내연락처|내이메일|회사|주소|회사전화|팩스|날짜)\}/g, (_, k) => f[k] ?? '');
 }
 function textToHtml(t) {
   return `<div style="font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:10pt;line-height:1.6">${esc(t).replace(/\r?\n/g, '<br>')}</div>`;
