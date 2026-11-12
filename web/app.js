@@ -74,7 +74,7 @@ const logHitsLender = (l, lid) => l.lenderId === lid || (l.lenderIds || []).incl
 
 /* ---------- 그리기 (입력 중이면 미뤘다가) ---------- */
 let pending = false;
-function typing() { const a = document.activeElement; return a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !['checkbox', 'file', 'radio', 'button'].includes(a.type); }
+function typing() { const a = document.activeElement; return a && ((/^(INPUT|TEXTAREA)$/.test(a.tagName) && !['checkbox', 'file', 'radio', 'button'].includes(a.type)) || a.isContentEditable); }
 function scheduleRender() {
   if (typing()) { if (!pending) { pending = true; document.activeElement.addEventListener('blur', () => setTimeout(() => { if (pending) render(); }, 50), { once: true }); } return; }
   render();
@@ -112,6 +112,18 @@ document.addEventListener('click', e => {
   A[el.dataset.act](el, e);
 });
 document.addEventListener('change', e => { const el = e.target.closest('[data-chg]'); if (el && C[el.dataset.chg]) C[el.dataset.chg](el, e); });
+// 줄바꿈되는 칸(비고·불참 사유): 눌러서 고치고, 칸을 벗어나면 저장. Enter = 저장, Esc = 되돌리기
+document.addEventListener('focusin', e => { const el = e.target.closest('[data-edit]'); if (el) el.dataset.orig = el.textContent; });
+document.addEventListener('focusout', e => {
+  const el = e.target.closest('[data-edit]'); if (!el) return;
+  const v = el.textContent.replace(/\s+/g, ' ').trim();
+  if (v !== (el.dataset.orig || '').trim() && C[el.dataset.edit]) C[el.dataset.edit]({ dataset: el.dataset, value: v });
+});
+document.addEventListener('keydown', e => {
+  const el = e.target.closest && e.target.closest('[data-edit]'); if (!el) return;
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); el.blur(); }
+  if (e.key === 'Escape') { el.textContent = el.dataset.orig || ''; el.blur(); e.stopPropagation(); }
+}, true);
 document.addEventListener('input', e => { const el = e.target.closest('[data-inp]'); if (el && I[el.dataset.inp]) I[el.dataset.inp](el, e); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { const all = $$('.scrim'), s = all.pop(); if (s && !s.dataset.lock) s.remove(); else if (!s && drawerId) closeDrawer(); }

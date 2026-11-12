@@ -286,7 +286,9 @@ function dealBoard(d, taps) {
         <td class="num"><input class="cell" inputmode="decimal" data-chg="tapfield" data-f="amount" data-id="${t.id}" value="${esc(t.amount === '' || t.amount == null ? '' : t.amount)}" placeholder="-"></td>
         <td class="num"><input class="cell" inputmode="decimal" data-chg="tapfield" data-f="approved" data-id="${t.id}" value="${esc(t.approved === '' || t.approved == null ? '' : t.approved)}" placeholder="-"></td>
         <td><input class="cell date" type="date" data-chg="tapfield" data-f="meetDate" data-id="${t.id}" value="${esc(t.meetDate || '')}"></td>
-        <td>${t.stage === 'declined' ? `<input class="cell wide" data-chg="tapfield" data-f="reason" data-id="${t.id}" value="${esc(t.reason || '')}" placeholder="불참 사유">` : `<input class="cell wide" data-chg="tapfield" data-f="note" data-id="${t.id}" value="${esc(t.note || '')}" placeholder="비고">`}</td>
+        <td class="note-td">${t.stage === 'declined'
+          ? `<div class="note-cell" contenteditable="plaintext-only" spellcheck="false" data-edit="tapfield" data-f="reason" data-id="${t.id}" data-ph="불참 사유">${esc(t.reason || '')}</div>`
+          : `<div class="note-cell" contenteditable="plaintext-only" spellcheck="false" data-edit="tapfield" data-f="note" data-id="${t.id}" data-ph="비고">${esc(t.note || '')}</div>`}</td>
         <td class="small muted">${t.lastTouch ? shortDate(t.lastTouch) : ''}</td>
         <td>${avatar(t.owner, 1)}</td></tr>`;
     }

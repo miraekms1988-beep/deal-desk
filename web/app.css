@@ -111,6 +111,12 @@ input.cell { width: 80px; border: 1px solid transparent; border-radius: 6px; pad
 input.cell:hover { border-color: var(--line); }
 input.cell:focus { border-color: var(--gold); background: #fff; outline: none; }
 input.cell.date { width: 118px; text-align: left; }
+/* 비고·불참 사유: 글이 길면 줄을 바꿔 다 보이게 */
+table.t td.note-td { white-space: normal; min-width: 240px; width: 34%; }
+.note-cell { padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; line-height: 1.45; word-break: break-word; min-height: 22px; cursor: text; }
+.note-cell:hover { border-color: var(--line); }
+.note-cell:focus { border-color: var(--gold); background: #fff; outline: none; }
+.note-cell:empty::before { content: attr(data-ph); color: var(--ink3); }
 input.cell.wide { width: 190px; text-align: left; }
 
 /* 입력 */
