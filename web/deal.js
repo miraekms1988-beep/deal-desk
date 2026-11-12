@@ -303,11 +303,12 @@ VIEWS.deal = id => {
     <div class="bar" style="height:8px;margin-top:14px"><span style="width:${w(s.approved)};background:var(--green)"></span><span style="width:${w(s.committee)};background:#a052d6"></span><span style="width:${w(s.review)};background:var(--amber)"></span></div>
     <div class="parties">${parties.length ? parties.map(([k, v]) => `<span><em>${k}</em>${esc(short(v, 34))}</span>`).join('') : '<span class="muted small">시행·시공·신탁 정보가 없습니다 - 딜 개요에서 채우거나 IM 파일을 이 화면에 끌어다 놓으세요</span>'}</div>
   </div>
-  <div class="tabs">${[['board', `태핑 보드 <b>${taps.length}</b>`], ['info', '딜 개요'], ['act', `대화 ${unreadOf(id).length ? unreadBadge(unreadOf(id).length) : `<b>${msgsOf(id).length}</b>`}`]].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="deal-tab" data-k="${k}">${t}</button>`).join('')}
+  <div class="tabs">${[['board', `태핑 보드 <b>${taps.length}</b>`], ['info', '딜 개요'], ['act', `대화 ${unreadOf(id).length ? unreadBadge(unreadOf(id).length) : `<b>${msgsOf(id).length}</b>`}`], ['tasks', `할 일 ${(() => { const o = tasksOf(id).filter(t => !t.done); const u = o.filter(t => ['over', 'today'].includes(dueState(t))).length; return u ? unreadBadge(u) : `<b>${o.length}</b>`; })()}`]].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="deal-tab" data-k="${k}">${t}</button>`).join('')}
     ${tab === 'board' && !isPhone() ? `<button class="dock-btn${ui.chatDock ? ' on' : ''}" data-act="chat-dock" title="보드 옆에 대화 열기">💬 옆에 대화${unreadOf(id).length ? ' ' + unreadBadge(unreadOf(id).length) : ''}</button>` : ''}</div>`;
 
   if (tab === 'info') return head + dealInfo(d, taps);
   if (tab === 'act') return head + `<div class="card chat-card">${chatHtml(id)}</div>`;
+  if (tab === 'tasks') return head + dealTasksHtml(id);
   if (ui.chatDock && !isPhone()) return head + `<div class="with-chat"><div style="min-width:0">${dealBoard(d, taps)}</div>${chatHtml(id, true)}</div>`;
   return head + dealBoard(d, taps);
 };

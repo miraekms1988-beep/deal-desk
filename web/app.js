@@ -91,10 +91,11 @@ function render() {
   // 대화 칸 스크롤 위치를 기억했다가 다시 그린 뒤 돌려 놓는다 (맨 아래였으면 맨 아래로)
   const keep = {}; $$('.chat-list').forEach(b => { keep[b.dataset.deal + (b.closest('.dock') ? 'd' : 't')] = { top: b.scrollTop, bottom: b.scrollHeight - b.scrollTop - b.clientHeight < 80 }; });
   const unread = typeof unreadAll === 'function' ? unreadAll().length : 0;
+  const urgentTasks = typeof myOpenTasks === 'function' ? myOpenTasks().filter(t => ['over', 'today'].includes(dueState(t))).length : 0;
   app.innerHTML = `${MOCK ? '<div class="mock-bar">시험 모드 - 이 브라우저 안에만 저장됩니다 (config.js 에 저장소 주소를 넣으면 팀 공유)</div>' : ''}
   <header class="top"><div class="top-in">
     <div class="logo" data-act="go" data-to="#/home"><i></i>DEAL <b>DESK</b></div>
-    <nav class="nav">${NAV.map(([k, t]) => `<a href="#/${k}" class="${navOn === k ? 'on' : ''}">${t}${k === 'deals' && unread ? ` <span class="ubadge">${unread}</span>` : ''}</a>`).join('')}</nav>
+    <nav class="nav">${NAV.map(([k, t]) => `<a href="#/${k}" class="${navOn === k ? 'on' : ''}">${t}${k === 'deals' && unread ? ` <span class="ubadge">${unread}</span>` : ''}${k === 'home' && urgentTasks ? ` <span class="ubadge">${urgentTasks}</span>` : ''}</a>`).join('')}</nav>
     <div class="me" data-act="go" data-to="#/settings">${avatar(m.id)}<span>${esc(m.name)}</span></div>
   </div></header>
   <main id="main">${view(r.arg)}</main>`;
@@ -350,6 +351,7 @@ VIEWS.home = () => {
   <div class="split">
     <div>${act.length ? `<div class="grid g2">${act.map(dealCard).join('')}</div>` : `<div class="card empty"><b>진행 중인 딜이 없습니다</b>오른쪽 위 '+ 새 딜'로 시작하세요</div>`}</div>
     <div class="grid">
+      ${typeof homeTaskCard === 'function' ? homeTaskCard() : ''}
       ${typeof homeChatCard === 'function' ? homeChatCard() : ''}
       <div class="card"><h2>팔로업 필요</h2>${follow.length ? follow.slice(0, 10).map(t => `<div class="pick" data-act="tap" data-id="${t.id}"><div class="grow"><b>${esc(lname(t.lenderId))}</b> <span class="muted small">${esc(dname(t.dealId))}</span><div class="small muted">${STAGE[t.stage].t} · 마지막 접촉 ${daysBetween(t.lastTouch, t0)}일 전</div></div>${avatar(t.owner, 1)}</div>`).join('') : '<div class="muted small">밀린 대주가 없습니다 👍</div>'}</div>
       <div class="card"><h2>다가오는 심의</h2>${upcoming.length ? upcoming.slice(0, 10).map(t => `<div class="pick" data-act="tap" data-id="${t.id}"><div class="grow"><b>${esc(lname(t.lenderId))}</b> <span class="muted small">${esc(dname(t.dealId))}</span><div class="small muted">${fmt(num(t.amount)) ? fmt(num(t.amount)) + '억 · ' : ''}${STAGE[t.stage].t}</div></div><span class="chip ${t.meetDate <= wk ? 'gold' : ''}">${shortDate(t.meetDate)} ${dday(t.meetDate)}</span></div>`).join('') : '<div class="muted small">잡힌 심의 일정이 없습니다</div>'}</div>

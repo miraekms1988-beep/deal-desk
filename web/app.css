@@ -163,6 +163,32 @@ input.cell.date { width: 118px; text-align: left; }
 .aci.on, .aci:hover { background: var(--goldbg); }
 @media (max-width: 1240px) { .with-chat { grid-template-columns: minmax(0, 1fr) 320px; } }
 @media (max-width: 640px) { .chat-card .chat { height: calc(100vh - 230px); min-height: 380px; } .chat-h .muted { display: none; } }
+/* 할 일 */
+.msg .mact { display: flex; gap: 8px; align-self: start; padding-top: 3px; }
+.msg .mact .mdel { visibility: hidden; font-size: 11px; color: var(--ink3); }
+.msg:hover .mact .mdel { visibility: visible; }
+.msg.flash { animation: flash 2.2s ease-out; }
+@keyframes flash { 0%, 40% { background: #fff1c9; } 100% { background: transparent; } }
+.tsug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 0 2px; padding: 7px 10px; border: 1px dashed var(--gold); border-radius: 10px; background: #fffaf0; font-size: 12.5px; }
+.tsug > span:first-child { font-weight: 700; color: var(--gold2); }
+.tsug b { font-weight: 600; }
+.tchip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0 2px; padding: 6px 10px; border-radius: 10px; background: var(--line2); font-size: 12.5px; }
+.tchip > span { color: var(--ink3); }
+.tchip.done { opacity: .6; }
+.tchip.over > span, .trow.over .tdue { color: #e5484d; font-weight: 700; }
+.tchip.today > span, .trow.today .tdue { color: var(--amber); font-weight: 700; }
+.tbox { font-size: 17px; line-height: 1; color: var(--ink2); text-decoration: none; }
+.tbox:hover { color: var(--gold2); }
+.tquick { display: grid; grid-template-columns: minmax(0, 1fr) 140px 150px auto; gap: 8px; margin-bottom: 12px; }
+@media (max-width: 720px) { .tquick { grid-template-columns: 1fr 1fr; } .tquick #tq-title { grid-column: 1 / -1; } }
+.tlist { display: flex; flex-direction: column; }
+.trow { display: flex; align-items: flex-start; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line2); }
+.trow:last-child { border-bottom: none; }
+.trow .grow { flex: 1; min-width: 0; }
+.trow .tt { color: var(--ink); font-weight: 600; }
+.trow.done .tt { text-decoration: line-through; color: var(--ink3); font-weight: 500; }
+.trow .tdue { font-size: 12px; color: var(--ink3); white-space: nowrap; padding-top: 2px; }
+.trow.soon .tdue { color: var(--ink2); font-weight: 600; }
 /* 대주 측 검토 담당자 */
 table.t td.pc-td { white-space: normal; min-width: 120px; max-width: 200px; }
 .pchip { display: inline-flex; align-items: baseline; gap: 3px; padding: 2px 8px; margin: 1px 4px 1px 0; border-radius: 7px; background: var(--line2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }

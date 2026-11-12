@@ -60,7 +60,8 @@ function chatListHtml(dealId) {
     flush();
     if (!marked && mark && it.at > mark && it.by !== Store.mid) { html += `<div class="chat-new"><span>여기부터 새 메시지</span></div>`; marked = true; prevBy = null; }
     const mine = it.by === Store.mid, cont = prevBy === it.by && (Date.parse(it.at) - Date.parse(prevAt)) < 5 * 60000;
-    html += `<div class="msg${mine ? ' mine' : ''}${cont ? ' cont' : ''}${mentionsMe(it) ? ' tome' : ''}"><div class="ma">${cont ? `<span class="mt2">${hm(it.at)}</span>` : avatar(it.by, 1)}</div><div class="mb">${cont ? '' : `<div class="mh"><b>${esc(mname(it.by))}</b>${mine ? ' <span class="me-tag">나</span>' : ''}<span class="mt">${hm(it.at)}</span></div>`}<div class="txt">${msgText(it)}</div></div>${mine ? `<a href="#" class="mdel" data-act="chat-del" data-id="${it.id}" title="지우기">지우기</a>` : ''}</div>`;
+    const tk = typeof taskUnderMsg === 'function' ? taskUnderMsg(it) : '';
+    html += `<div class="msg${mine ? ' mine' : ''}${cont ? ' cont' : ''}${mentionsMe(it) ? ' tome' : ''}" data-mid="${it.id}"><div class="ma">${cont ? `<span class="mt2">${hm(it.at)}</span>` : avatar(it.by, 1)}</div><div class="mb">${cont ? '' : `<div class="mh"><b>${esc(mname(it.by))}</b>${mine ? ' <span class="me-tag">나</span>' : ''}<span class="mt">${hm(it.at)}</span></div>`}<div class="txt">${msgText(it)}</div>${tk}</div><span class="mact">${tk ? '' : `<a href="#" class="mdel" data-act="task-from-msg" data-mid="${it.id}" title="이 메시지로 할 일 만들기">할 일로</a>`}${mine ? `<a href="#" class="mdel" data-act="chat-del" data-id="${it.id}" title="지우기">지우기</a>` : ''}</span></div>`;
     prevBy = it.by; prevAt = it.at;
   }
   flush();
@@ -94,7 +95,9 @@ function initChats(keep = {}) {
     ui.chatMark = ui.chatMark || {};
     if (ui.chatMark[id] === undefined) { ui.chatMark[id] = seenOf(id); box.innerHTML = chatListHtml(id); }
     box._html = box.innerHTML;
-    if (k) box.scrollTop = k.bottom ? box.scrollHeight : k.top;   // 다시 그린 것: 보던 자리 그대로
+    const jump = ui.chatJump && box.querySelector(`.msg[data-mid="${ui.chatJump}"]`);
+    if (jump) { box.scrollTop = Math.max(0, jump.offsetTop - 80); jump.classList.add('flash'); ui.chatJump = null; }   // 할 일에서 '대화에서'
+    else if (k) box.scrollTop = k.bottom ? box.scrollHeight : k.top;   // 다시 그린 것: 보던 자리 그대로
     else { const nl = box.querySelector('.chat-new'); box.scrollTop = nl ? Math.max(0, nl.offsetTop - 60) : box.scrollHeight; }
     markSeen(id);
   }
