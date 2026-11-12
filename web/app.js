@@ -76,6 +76,7 @@ const logHitsLender = (l, lid) => l.lenderId === lid || (l.lenderIds || []).incl
 let pending = false;
 function typing() { const a = document.activeElement; return a && ((/^(INPUT|TEXTAREA)$/.test(a.tagName) && !['checkbox', 'file', 'radio', 'button'].includes(a.type)) || a.isContentEditable); }
 function scheduleRender() {
+  if (typeof refreshChats === 'function') refreshChats();   // 대화는 입력 중에도 바로 바뀐다
   if (typing()) { if (!pending) { pending = true; document.activeElement.addEventListener('blur', () => setTimeout(() => { if (pending) render(); }, 50), { once: true }); } return; }
   render();
 }
@@ -87,16 +88,20 @@ function render() {
   const navOn = { deal: 'deals', cost: 'deals', lender: 'lenders' }[r.name] || r.name;
   const view = VIEWS[r.name] || VIEWS.home;
   const sy = window.scrollY;
+  // 대화 칸 스크롤 위치를 기억했다가 다시 그린 뒤 돌려 놓는다 (맨 아래였으면 맨 아래로)
+  const keep = {}; $$('.chat-list').forEach(b => { keep[b.dataset.deal + (b.closest('.dock') ? 'd' : 't')] = { top: b.scrollTop, bottom: b.scrollHeight - b.scrollTop - b.clientHeight < 80 }; });
+  const unread = typeof unreadAll === 'function' ? unreadAll().length : 0;
   app.innerHTML = `${MOCK ? '<div class="mock-bar">시험 모드 - 이 브라우저 안에만 저장됩니다 (config.js 에 저장소 주소를 넣으면 팀 공유)</div>' : ''}
   <header class="top"><div class="top-in">
     <div class="logo" data-act="go" data-to="#/home"><i></i>DEAL <b>DESK</b></div>
-    <nav class="nav">${NAV.map(([k, t]) => `<a href="#/${k}" class="${navOn === k ? 'on' : ''}">${t}</a>`).join('')}</nav>
+    <nav class="nav">${NAV.map(([k, t]) => `<a href="#/${k}" class="${navOn === k ? 'on' : ''}">${t}${k === 'deals' && unread ? ` <span class="ubadge">${unread}</span>` : ''}</a>`).join('')}</nav>
     <div class="me" data-act="go" data-to="#/settings">${avatar(m.id)}<span>${esc(m.name)}</span></div>
   </div></header>
   <main id="main">${view(r.arg)}</main>`;
   if (r.name === ui._lastRoute) window.scrollTo(0, sy);
   ui._lastRoute = r.name;
   if (r.name === 'cost' && typeof costRefresh === 'function') costRefresh();
+  if (typeof initChats === 'function') initChats(keep);
   if (drawerId) renderDrawer();
 }
 const VIEWS = {};
@@ -285,6 +290,8 @@ function startApp() {
     Store.onChange(scheduleRender);
     window.addEventListener('hashchange', () => { closeDrawer(); render(); window.scrollTo(0, 0); });
     setInterval(() => { if (!document.hidden) Store.sync().catch(() => { }); }, 40000);
+    // 대화가 화면에 있으면 12초마다 (실시간 푸시가 없는 저장소라 자주 묻는다)
+    setInterval(() => { if (!document.hidden && document.querySelector('.chat-list')) Store.sync().catch(() => { }); }, 12000);
     window.addEventListener('focus', () => Store.sync().catch(() => { }));
   }
   render();
@@ -343,6 +350,7 @@ VIEWS.home = () => {
   <div class="split">
     <div>${act.length ? `<div class="grid g2">${act.map(dealCard).join('')}</div>` : `<div class="card empty"><b>진행 중인 딜이 없습니다</b>오른쪽 위 '+ 새 딜'로 시작하세요</div>`}</div>
     <div class="grid">
+      ${typeof homeChatCard === 'function' ? homeChatCard() : ''}
       <div class="card"><h2>팔로업 필요</h2>${follow.length ? follow.slice(0, 10).map(t => `<div class="pick" data-act="tap" data-id="${t.id}"><div class="grow"><b>${esc(lname(t.lenderId))}</b> <span class="muted small">${esc(dname(t.dealId))}</span><div class="small muted">${STAGE[t.stage].t} · 마지막 접촉 ${daysBetween(t.lastTouch, t0)}일 전</div></div>${avatar(t.owner, 1)}</div>`).join('') : '<div class="muted small">밀린 대주가 없습니다 👍</div>'}</div>
       <div class="card"><h2>다가오는 심의</h2>${upcoming.length ? upcoming.slice(0, 10).map(t => `<div class="pick" data-act="tap" data-id="${t.id}"><div class="grow"><b>${esc(lname(t.lenderId))}</b> <span class="muted small">${esc(dname(t.dealId))}</span><div class="small muted">${fmt(num(t.amount)) ? fmt(num(t.amount)) + '억 · ' : ''}${STAGE[t.stage].t}</div></div><span class="chip ${t.meetDate <= wk ? 'gold' : ''}">${shortDate(t.meetDate)} ${dday(t.meetDate)}</span></div>`).join('') : '<div class="muted small">잡힌 심의 일정이 없습니다</div>'}</div>
       <div class="card"><h2>최근 활동</h2>${feedHtml(recent.slice(0, 12), true)}<div style="margin-top:8px"><a href="#/feed">전체 보기 →</a></div></div>
@@ -357,7 +365,7 @@ function dealCard(d) {
   const follow = taps.filter(needsFollow).length;
   return `<div class="card deal-card" data-act="go" data-to="#/deal/${encodeURIComponent(d.id)}">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><div class="t">${esc(d.name)}</div><div class="meta">${esc([d.sponsor, d.builder].filter(Boolean).join(' · ') || d.location || '')}</div></div><div style="display:flex;gap:-4px">${(d.owners || []).slice(0, 3).map(o => avatar(o, 1)).join('')}</div></div>
-    <div class="chips"><span class="chip">${esc(d.kind || '')}</span><span class="chip gold">${esc(d.stage || '')}</span>${d.rate ? `<span class="chip">${esc(pctOf(d.rate, 12))}</span>` : ''}${d.term ? `<span class="chip">${esc(monthsOf(d.term))}</span>` : ''}${d.due ? `<span class="chip">기표 ${shortDate(d.due)}</span>` : ''}${follow ? `<span class="chip warn">팔로업 ${follow}</span>` : ''}</div>
+    <div class="chips"><span class="chip">${esc(d.kind || '')}</span><span class="chip gold">${esc(d.stage || '')}</span>${d.rate ? `<span class="chip">${esc(pctOf(d.rate, 12))}</span>` : ''}${d.term ? `<span class="chip">${esc(monthsOf(d.term))}</span>` : ''}${d.due ? `<span class="chip">기표 ${shortDate(d.due)}</span>` : ''}${follow ? `<span class="chip warn">팔로업 ${follow}</span>` : ''}${typeof unreadOf === 'function' && unreadOf(d.id).length ? `<span class="chip red">새 대화 ${unreadOf(d.id).length}</span>` : ''}</div>
     <div class="bar"><span style="width:${w(s.approved)};background:var(--green)"></span><span style="width:${w(s.committee)};background:#a052d6"></span><span style="width:${w(s.review)};background:var(--amber)"></span></div>
     <div class="bar-legend"><span>목표 <b>${tgt ? fmt(tgt) + '억' : '-'}</b></span><span class="lg" style="--c:var(--green)">승인 <b>${fmt(s.approved) || 0}</b></span><span class="lg" style="--c:#a052d6">심의 <b>${fmt(s.committee) || 0}</b></span><span class="lg" style="--c:var(--amber)">검토 <b>${fmt(s.review) || 0}</b></span></div>
     <div class="small muted">대주 ${s.total}곳 태핑 · 회신 ${s.responded}곳${s.declined ? ` · 불참 ${s.declined}` : ''}</div>
@@ -381,7 +389,7 @@ VIEWS.deals = () => {
   return `<div class="page-head"><div><h1>딜</h1><div class="sub">진행 중 ${deals().filter(isActive).length}건 · 전체 ${deals().length}건</div></div>
     <div class="actions"><div class="seg">${[['active', '진행 중'], ['done', '종결·드랍'], ['all', '전체']].map(([k, t]) => `<button class="${f === k ? 'on' : ''}" data-act="deals-filter" data-k="${k}">${t}</button>`).join('')}</div><button class="btn dark" data-act="deal-new">+ 새 딜</button></div></div>
   ${isPhone() ? (list.length ? `<div class="grid">${list.map(dealCard).join('')}</div>` : '<div class="card empty">해당하는 딜이 없습니다</div>') : `<div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>딜</th><th>유형</th><th>단계</th><th class="num">목표(억)</th><th class="num">승인</th><th class="num">심의·검토</th><th class="num">대주</th><th>담당</th><th>기표 목표</th></tr></thead><tbody>
-  ${list.map(d => { const s = sums(tapsOf(d.id)); return `<tr class="row" data-act="go" data-to="#/deal/${encodeURIComponent(d.id)}" style="cursor:pointer"><td><b>${esc(d.name)}</b><div class="small muted">${esc([d.sponsor, d.builder].filter(Boolean).join(' · '))}</div></td><td>${esc(d.kind || '')}</td><td><span class="chip gold">${esc(d.stage || '')}</span></td><td class="num">${fmt(num(d.target))}</td><td class="num">${fmt(s.approved)}</td><td class="num">${fmt(s.committee + s.review)}</td><td class="num">${s.total}</td><td>${(d.owners || []).map(o => avatar(o, 1)).join(' ')}</td><td>${esc(d.due || '')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">해당하는 딜이 없습니다</td></tr>'}
+  ${list.map(d => { const s = sums(tapsOf(d.id)); return `<tr class="row" data-act="go" data-to="#/deal/${encodeURIComponent(d.id)}" style="cursor:pointer"><td><b>${esc(d.name)}</b>${typeof unreadOf === 'function' ? unreadBadge(unreadOf(d.id).length) : ''}<div class="small muted">${esc([d.sponsor, d.builder].filter(Boolean).join(' · '))}</div></td><td>${esc(d.kind || '')}</td><td><span class="chip gold">${esc(d.stage || '')}</span></td><td class="num">${fmt(num(d.target))}</td><td class="num">${fmt(s.approved)}</td><td class="num">${fmt(s.committee + s.review)}</td><td class="num">${s.total}</td><td>${(d.owners || []).map(o => avatar(o, 1)).join(' ')}</td><td>${esc(d.due || '')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">해당하는 딜이 없습니다</td></tr>'}
   </tbody></table></div></div>`}`;
 };
 A['deals-filter'] = el => { ui.dealsFilter = el.dataset.k; render(); };
@@ -512,7 +520,7 @@ function renderDrawer() {
     dr = document.createElement('aside'); dr.id = 'drawer'; dr.className = 'drawer'; document.body.appendChild(dr);
   }
   const L = Store.get(t.lenderId) || { name: '(삭제된 대주)', contacts: [] }, d = Store.get(t.dealId) || {};
-  const hist = logsFor(l => l.dealId === t.dealId && (l.tapId === t.id || logHitsLender(l, t.lenderId)));
+  const hist = [...logsFor(l => l.dealId === t.dealId && (l.tapId === t.id || logHitsLender(l, t.lenderId))), ...msgs().filter(m => m.dealId === t.dealId && (m.lenderIds || []).includes(t.lenderId)).map(asLog)].sort((a, b) => (b.at || '').localeCompare(a.at || ''));
   const others = Store.all('tap').filter(x => x.lenderId === t.lenderId && x.dealId !== t.dealId);
   dr.innerHTML = `<div class="drawer-h"><div><div class="small muted">${esc(d.name || '')}</div><h2 style="margin:2px 0 6px"><a href="#/lender/${encodeURIComponent(t.lenderId)}">${esc(L.name)}</a></h2><div class="chips"><span class="chip">${esc(L.type || '')}</span>${stageSelect(t)}${needsFollow(t) ? '<span class="chip warn">팔로업 필요</span>' : ''}</div></div><button class="x-btn" data-act="drawer-close">×</button></div>
   <div class="drawer-b">

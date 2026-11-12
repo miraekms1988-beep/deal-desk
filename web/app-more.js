@@ -583,7 +583,7 @@ A['mail-log'] = async () => {
  * 활동
  * ==================================================================== */
 VIEWS.feed = () => {
-  const list = logs().filter(l => (!ui.feedDeal || l.dealId === ui.feedDeal) && (!ui.feedWho || l.by === ui.feedWho) && (!ui.feedType || l.type === ui.feedType));
+  const list = [...logs(), ...msgs().map(asLog)].sort((a, b) => (b.at || '').localeCompare(a.at || '')).filter(l => (!ui.feedDeal || l.dealId === ui.feedDeal) && (!ui.feedWho || l.by === ui.feedWho) && (!ui.feedType || l.type === ui.feedType));
   return `<div class="page-head"><div><h1>활동</h1><div class="sub">팀 전체 기록 ${logs().length}건</div></div></div>
   <div class="toolbar"><select class="input" style="width:auto" data-chg="f-deal"><option value="">모든 딜</option>${deals().map(d => `<option value="${d.id}" ${ui.feedDeal === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>
     <select class="input" style="width:auto" data-chg="f-who"><option value="">모든 사람</option>${members().map(m => `<option value="${m.id}" ${ui.feedWho === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
