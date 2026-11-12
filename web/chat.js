@@ -42,26 +42,36 @@ function chatListHtml(dealId) {
   const items = [...logsFor(l => l.dealId === dealId).map(l => ({ ...l, sys: true })), ...msgsOf(dealId)].sort((a, b) => (a.at || '').localeCompare(b.at || ''));
   if (!items.length) return `<div class="chat-empty">아직 대화가 없습니다.<br>이 딜 얘기를 남겨 보세요 - <b>@이름</b>으로 부르고 <b>#대주</b>로 대주를 붙일 수 있습니다.</div>`;
   const mark = (ui.chatMark || {})[dealId] || '';
-  let html = '', day = '', marked = false, prevBy = null, prevAt = '';
+  const showLogs = ui.chatLogs === 'all', open = ui.chatOpenLogs || (ui.chatOpenLogs = new Set());
+  let html = '', day = '', marked = false, prevBy = null, prevAt = '', group = [];
+  const logLine = l => `<div class="clog"><span class="tag ${l.type}">${LOG_TYPES[l.type] || ''}</span>${esc(String(l.text || '').split('\n')[0].slice(0, 140))} <span class="muted">· ${esc(mname(l.by))} ${hm(l.at)}</span></div>`;
+  // 자동 기록은 메시지 사이에 모아 두었다가 한 줄로 접는다 (펼치면 한 줄씩)
+  const flush = () => {
+    if (!group.length) return;
+    const key = group[0].id;
+    if (showLogs || open.has(key)) html += `<div class="clogs">${group.map(logLine).join('')}${!showLogs ? `<a href="#" class="clog-fold" data-act="chat-logs-x" data-k="${key}">접기</a>` : ''}</div>`;
+    else html += `<a href="#" class="clog-sum" data-act="chat-logs-x" data-k="${key}">📋 기록 ${group.length}건 · ${esc(String(group[group.length - 1].text || '').split('\n')[0].slice(0, 50))}${group.length > 1 ? ' 외' : ''}</a>`;
+    group = []; prevBy = null;
+  };
   for (const it of items) {
     const dl = dayLabel(it.at);
-    if (dl !== day) { html += `<div class="chat-day"><span>${dl}</span></div>`; day = dl; prevBy = null; }
-    if (!it.sys && !marked && mark && it.at > mark && it.by !== Store.mid) { html += `<div class="chat-new"><span>여기부터 새 메시지</span></div>`; marked = true; }
-    if (it.sys) {
-      html += `<div class="chat-sys"><span class="tag ${it.type}">${LOG_TYPES[it.type] || ''}</span>${esc(mname(it.by))} · ${esc(String(it.text || '').split('\n')[0].slice(0, 120))} <span class="t">${hm(it.at)}</span></div>`;
-      prevBy = null; continue;
-    }
+    if (dl !== day) { flush(); html += `<div class="chat-day"><span>${dl}</span></div>`; day = dl; prevBy = null; }
+    if (it.sys) { group.push(it); continue; }
+    flush();
+    if (!marked && mark && it.at > mark && it.by !== Store.mid) { html += `<div class="chat-new"><span>여기부터 새 메시지</span></div>`; marked = true; prevBy = null; }
     const mine = it.by === Store.mid, cont = prevBy === it.by && (Date.parse(it.at) - Date.parse(prevAt)) < 5 * 60000;
-    html += `<div class="msg${mine ? ' mine' : ''}${cont ? ' cont' : ''}${mentionsMe(it) ? ' tome' : ''}">${mine || cont ? '' : avatar(it.by, 1)}<div class="mb">${mine || cont ? '' : `<div class="mn">${esc(mname(it.by))}</div>`}<div class="bub">${msgText(it)}</div></div><div class="mt">${hm(it.at)}${mine ? ` <a href="#" class="mdel" data-act="chat-del" data-id="${it.id}" title="지우기">지우기</a>` : ''}</div></div>`;
+    html += `<div class="msg${mine ? ' mine' : ''}${cont ? ' cont' : ''}${mentionsMe(it) ? ' tome' : ''}"><div class="ma">${cont ? `<span class="mt2">${hm(it.at)}</span>` : avatar(it.by, 1)}</div><div class="mb">${cont ? '' : `<div class="mh"><b>${esc(mname(it.by))}</b>${mine ? ' <span class="me-tag">나</span>' : ''}<span class="mt">${hm(it.at)}</span></div>`}<div class="txt">${msgText(it)}</div></div>${mine ? `<a href="#" class="mdel" data-act="chat-del" data-id="${it.id}" title="지우기">지우기</a>` : ''}</div>`;
     prevBy = it.by; prevAt = it.at;
   }
+  flush();
   return html;
 }
 
 function chatHtml(dealId, dock) {
   const draft = ((ui.chatDraft || {})[dealId]) || '';
+  const seg = `<div class="seg chat-seg"><button class="${ui.chatLogs !== 'all' ? 'on' : ''}" data-act="chat-logs" data-k="msg">대화만</button><button class="${ui.chatLogs === 'all' ? 'on' : ''}" data-act="chat-logs" data-k="all">기록 포함</button></div>`;
   return `<div class="chat${dock ? ' dock' : ''}" data-deal="${dealId}">
-    ${dock ? `<div class="chat-h"><b>대화</b><span class="muted small">${esc(dname(dealId))}</span><button class="x-btn" data-act="chat-dock" title="닫기">×</button></div>` : ''}
+    <div class="chat-h">${dock ? `<b>대화</b><span class="muted small">${esc(dname(dealId))}</span>` : `<b>대화</b><span class="muted small">이 딜 얘기 · @이름 · #대주</span>`}${seg}${dock ? '<button class="x-btn" data-act="chat-dock" title="닫기">×</button>' : ''}</div>
     <div class="chat-list" data-deal="${dealId}">${chatListHtml(dealId)}</div>
     <div class="chat-comp"><div class="chat-ac hide"></div>
       <textarea class="input chat-input" data-deal="${dealId}" rows="2" placeholder="메시지 · @이름 부르기 · #대주 붙이기 · Enter 보내기, Shift+Enter 줄바꿈">${esc(draft)}</textarea>
@@ -120,6 +130,10 @@ A['chat-lender'] = (el, e) => {
   const t = Store.all('tap').find(x => x.dealId === el.dataset.deal && x.lenderId === el.dataset.lender);
   if (t) { drawerId = t.id; renderDrawer(); } else location.hash = '#/lender/' + encodeURIComponent(el.dataset.lender);
 };
+// 기록 보기: '대화만'(접힘, 기본) / '기록 포함'(모두 펼침) - 이 기기에 기억
+A['chat-logs'] = el => { ui.chatLogs = el.dataset.k; try { localStorage.setItem('dd-chat-logs', ui.chatLogs); } catch (e) { } render(); };
+A['chat-logs-x'] = (el, e) => { if (e) e.preventDefault(); const s = ui.chatOpenLogs || (ui.chatOpenLogs = new Set()); s.has(el.dataset.k) ? s.delete(el.dataset.k) : s.add(el.dataset.k); refreshChats(); };
+try { ui.chatLogs = localStorage.getItem('dd-chat-logs') || 'msg'; } catch (e) { ui.chatLogs = 'msg'; }
 A['chat-dock'] = () => { ui.chatDock = !ui.chatDock; try { localStorage.setItem('dd-chat-dock', ui.chatDock ? '1' : ''); } catch (e) { } render(); };
 try { ui.chatDock = !!localStorage.getItem('dd-chat-dock'); } catch (e) { }
 
