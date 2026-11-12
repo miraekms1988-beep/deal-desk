@@ -233,7 +233,7 @@ A['contact-pop'] = (el, e) => {
       <dt>이메일</dt><dd>${c.email ? esc(c.email) : '<span class="muted">-</span>'}</dd>${c.memo ? `<dt>메모</dt><dd>${esc(c.memo)}</dd>` : ''}
       <dt>이 딜</dt><dd>${assigned ? '<span class="chip gold">검토 담당자</span>' : '<span class="muted">검토 담당자로 지정되지 않음 (대주 첫 담당자라 표시)</span>'}</dd></dl>
       ${(L.contacts || []).length > 1 ? `<div class="small muted" style="margin-top:10px">${esc(L.name)} 담당자 ${(L.contacts || []).length}명 · '담당자 바꾸기'에서 이 딜 담당을 고르세요</div>` : ''}`,
-    foot: `<button class="btn" data-edit style="margin-right:auto">정보 고치기</button><button class="btn" data-pick>담당자 바꾸기</button>${c.email ? '<button class="btn dark" data-mail>메일 쓰기</button>' : ''}`,
+    foot: `<button class="btn" data-edit style="margin-right:auto">정보 수정</button><button class="btn" data-pick>담당자 바꾸기</button>${c.email ? '<button class="btn dark" data-mail>메일 쓰기</button>' : ''}`,
     onMount: (m, close) => {
       m.querySelector('[data-edit]').onclick = () => { close(); contactForm(L.id, c); };
       m.querySelector('[data-pick]').onclick = () => { close(); A['tap-contacts']({ dataset: { id: t.id } }); };
@@ -315,7 +315,7 @@ A['deal-file'] = el => { const inp = document.createElement('input'); inp.type =
 
 function dealInfo(d, taps) {
   const kv = rows => { const r = rows.filter(x => x[1] !== '' && x[1] != null); return r.length ? `<dl class="kv2">${r.map(([k, v, raw]) => `<dt>${k}</dt><dd>${raw ? v : esc(v)}</dd>`).join('')}</dl>` : '<div class="muted small">아직 없습니다</div>'; };
-  const card = (title, sec, body) => `<div class="card"><div class="card-h"><h2>${title}</h2><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="${sec}">고치기</button></div>${body}</div>`;
+  const card = (title, sec, body) => `<div class="card"><div class="card-h"><h2>${title}</h2><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="${sec}">수정</button></div>${body}</div>`;
   const tr = trList(d);
   const trRows = (tr.length ? tr : [{ name: '전체', amount: d.target }]).map(t => {
     const ts = tr.length ? taps.filter(x => x.tranche === t.name) : taps;
@@ -328,7 +328,7 @@ function dealInfo(d, taps) {
   const meets = taps.filter(t => t.meetDate && t.stage !== 'declined').sort((a, b) => a.meetDate.localeCompare(b.meetDate));
   // 자료: 팀 공용 파일(내려받기·지우기·이 파일로 채우기) + 링크 + 예전 '자동 입력에 쓴 파일' 이름 + 기타 조건·메모
   const files = (d.files || []).slice().sort((a, b) => (b.at || '').localeCompare(a.at || ''));
-  const filesCard = `<div class="card files-card" style="grid-column:1/-1"><div class="card-h"><h2>자료 · 메모 <span class="muted small">대주 송부 자료 등 - 팀원 누구나 내려받기</span></h2><div style="display:flex;gap:6px"><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="sched">링크·메모 고치기</button><button class="btn sm dark" data-act="file-up" data-id="${d.id}">+ 파일 올리기</button></div></div>
+  const filesCard = `<div class="card files-card" style="grid-column:1/-1"><div class="card-h"><h2>자료 · 메모 <span class="muted small">대주 송부 자료 등 - 팀원 누구나 내려받기</span></h2><div style="display:flex;gap:6px"><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="sched">링크·메모 수정</button><button class="btn sm dark" data-act="file-up" data-id="${d.id}">+ 파일 올리기</button></div></div>
     ${files.length ? `<div class="flist">${files.map(m => `<div class="frow"><span class="ficon">${/\.pdf$/i.test(m.name) ? 'PDF' : /\.docx?$/i.test(m.name) ? 'DOC' : /\.xls/i.test(m.name) ? 'XLS' : /\.hwp/i.test(m.name) ? 'HWP' : /\.(png|jpe?g)$/i.test(m.name) ? 'IMG' : 'FILE'}</span><div class="grow"><a href="#" data-act="file-get" data-id="${d.id}" data-fid="${m.fid}"><b>${esc(m.name)}</b></a><div class="small muted">${fmtSize(m.size || 0)} · ${esc(when(m.at))} · ${esc(mname(m.by))}</div></div><div class="fbtn">${canFill(m) ? `<button class="btn sm ghost" data-act="file-fill" data-id="${d.id}" data-fid="${m.fid}" title="이 파일 내용으로 딜 정보 빈 칸 채우기">빈 칸 채우기</button>` : ''}<button class="btn sm" data-act="file-get" data-id="${d.id}" data-fid="${m.fid}">내려받기</button><button class="btn sm ghost danger" data-act="file-del" data-id="${d.id}" data-fid="${m.fid}">삭제</button></div></div>`).join('')}</div>`
       : `<div class="drop-hint">IM · 텀싯 · 감정평가서 등을 여기(또는 이 화면 아무 곳)에 끌어다 놓으세요. 팀 키로 암호화해 보관하고, PDF·워드·엑셀이면 내용으로 딜 정보 빈 칸을 채울 수 있습니다.</div>`}
     ${docs.length ? `<div class="docs" style="margin-top:10px">${docs.map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.name)}</a>` : `<span class="muted small">📄 ${esc(x.name)} (예전 자동 입력에 쓴 파일 - 보관 안 됨, 다시 올려 주세요)</span>`).join('')}</div>` : ''}
@@ -336,7 +336,7 @@ function dealInfo(d, taps) {
   return `<div class="grid g2 info-grid">
     ${filesCard}
     ${card('금융 조건', 'fin', kv([['대출금액', d.target ? fmt(num(d.target)) + '억원' : ''], ['금리', d.rate], ['수수료', d.fee], ['All-in', d.allin], ['대출기간', d.term], ['LTV', d.ltv], ['상환방법', d.repay], ['자금용도', d.purpose]]))}
-    <div class="card"><div class="card-h"><h2>트랜치별 모집 현황</h2><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="tr">고치기</button></div>
+    <div class="card"><div class="card-h"><h2>트랜치별 모집 현황</h2><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="tr">수정</button></div>
       <div class="tbl-wrap"><table class="t stack"><thead><tr><th>트랜치</th><th class="num">목표</th><th>금리</th><th class="num">승인</th><th class="num">심의</th><th class="num">검토</th><th class="num">남은 금액</th><th></th></tr></thead><tbody>${trRows}</tbody></table></div>
       ${unassigned ? `<div class="small muted" style="margin-top:8px">트랜치를 안 정한 대주 ${unassigned}곳 - 태핑 보드에서 정해 주세요</div>` : ''}<div class="small muted" style="margin-top:6px">단위 억원</div></div>
     ${card('채권보전 · 신용보강', 'fin', d.security ? bullets(d.security) : '<div class="muted small">아직 없습니다</div>')}
@@ -371,7 +371,7 @@ function dealBoard(d, taps) {
     };
     for (const t of sorted) { const ty = (Store.get(t.lenderId) || {}).type || '기타'; if (ty !== cur) { flushG(); cur = ty; } grp.push(t); }
     flushG();
-    board = `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${html}</div><div class="mtot">합계 ${shown.length}곳 · 검토 ${fmt(tot.a) || 0}억 · 승인 ${fmt(tot.p) || 0}억</div></div><div class="small muted" style="margin-top:6px">카드를 누르면 금액·심의일·메모를 고칠 수 있습니다</div>`;
+    board = `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${html}</div><div class="mtot">합계 ${shown.length}곳 · 검토 ${fmt(tot.a) || 0}억 · 승인 ${fmt(tot.p) || 0}억</div></div><div class="small muted" style="margin-top:6px">카드를 누르면 금액·심의일·메모를 수정할 수 있습니다</div>`;
   }
   else if (ui.boardView === 'kanban') {
     board = `<div class="kanban">${STAGES.map(st => { const col = sorted.filter(t => t.stage === st.k); return `<div class="kcol"><h4><span style="color:${st.c}">● ${st.t}</span><span class="muted">${col.length}</span></h4>${col.map(t => `<div class="kcard" data-act="tap" data-id="${t.id}"><b>${esc(lname(t.lenderId))}</b>${needsFollow(t) ? ' <span class="chip warn">팔로업</span>' : ''}<div class="a">${esc((Store.get(t.lenderId) || {}).type || '')}${num(t.amount) ? ' · ' + fmt(num(t.amount)) + '억' : ''}${t.meetDate ? ' · 심의 ' + shortDate(t.meetDate) : ''}</div></div>`).join('')}</div>`; }).join('')}</div>`;

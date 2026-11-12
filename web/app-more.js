@@ -37,7 +37,7 @@ A['lender-edit'] = el => lenderForm(Store.get(el.dataset.id));
 function lenderForm(L, after) {
   const isNew = !L; L = L || { type: '캐피탈', contacts: [] };
   modal({
-    title: isNew ? '대주 등록' : '대주 정보 고치기',
+    title: isNew ? '대주 등록' : '대주 정보 수정',
     body: `<div class="row2"><div class="field"><label>기관 이름</label><input class="input" id="l-name" value="${esc(L.name || '')}"></div>
       <div class="field"><label>유형</label><select class="input" id="l-type">${LENDER_TYPES.map(t => `<option ${L.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
       <div class="field"><label>성향·조건 (다음 딜 고를 때 참고)</label><textarea class="input" id="l-prefs" style="min-height:70px" placeholder="예: 수도권만, 1군 시공사 책준 필수, 건당 200억 한도, 선순위만">${esc(L.prefs || '')}</textarea></div>
@@ -84,7 +84,7 @@ function matchLender(map, name) {
 function contactForm(lid, c, after) {
   const isNew = !c; c = c || {};
   modal({
-    title: (isNew ? '담당자 추가 · ' : '담당자 고치기 · ') + lname(lid),
+    title: (isNew ? '담당자 추가 · ' : '담당자 수정 · ') + lname(lid),
     body: `<div class="row3"><div class="field"><label>이름</label><input class="input" id="c-name" value="${esc(c.name || '')}"></div><div class="field"><label>직함</label><input class="input" id="c-title" value="${esc(c.title || '')}"></div><div class="field"><label>부서</label><input class="input" id="c-dept" value="${esc(c.dept || '')}"></div></div>
       <div class="row2"><div class="field"><label>휴대폰</label><input class="input" id="c-phone" value="${esc(c.phone || '')}"></div><div class="field"><label>이메일</label><input class="input" id="c-email" type="email" value="${esc(c.email || '')}"></div></div>
       <div class="field"><label>메모</label><input class="input" id="c-memo" value="${esc(c.memo || '')}" placeholder="예: 심사역, 오전 통화 선호"></div>`,
@@ -110,14 +110,14 @@ VIEWS.lender = id => {
   const taps = Store.all('tap').filter(t => t.lenderId === id).sort((a, b) => (b.lastTouch || '').localeCompare(a.lastTouch || ''));
   const ls = Store.all('list').filter(l => (l.items || []).some(i => i.lenderId === id));
   return `<div class="page-head"><div><div class="small muted"><a href="#/lenders">대주</a> ›</div><h1>${esc(L.name)}</h1><div class="chips" style="margin-top:6px"><span class="chip">${esc(L.type || '')}</span>${ls.map(l => `<span class="chip gold">${esc(l.name)}</span>`).join('')}</div></div>
-    <div class="actions"><button class="btn" data-act="lender-edit" data-id="${id}">고치기</button><button class="btn dark" data-act="mail-lender" data-id="${id}">메일 쓰기</button></div></div>
+    <div class="actions"><button class="btn" data-act="lender-edit" data-id="${id}">수정</button><button class="btn dark" data-act="mail-lender" data-id="${id}">메일 쓰기</button></div></div>
   <div class="split"><div class="grid">
     <div class="card"><h2>딜 이력</h2>${taps.length ? `<div class="tbl-wrap"><table class="t stack"><thead><tr><th>딜</th><th>유형</th><th>단계</th><th class="num">검토(억)</th><th class="num">승인(억)</th><th>사유·비고</th><th>최근</th></tr></thead><tbody>${taps.map(t => { const d = Store.get(t.dealId) || {}; return `<tr class="row"><td><a href="#/deal/${encodeURIComponent(t.dealId)}"><b>${esc(d.name || '')}</b></a></td><td>${esc(d.kind || '')}</td><td><span class="chip dot" style="color:${STAGE[t.stage].c}">${STAGE[t.stage].t}</span></td><td class="num" data-l="검토">${fmt(num(t.amount))}</td><td class="num" data-l="승인">${fmt(num(t.approved))}</td><td class="ell">${esc(t.reason || t.note || '')}</td><td class="small muted">${shortDate(t.lastTouch)}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="muted small">아직 함께한 딜이 없습니다</div>'}</div>
     <div class="card"><h2>활동</h2>${feedHtml(logsFor(l => logHitsLender(l, id)).slice(0, 50))}</div>
   </div><div class="grid">
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h2 style="margin:0">담당자</h2><button class="btn sm" data-act="contact-add" data-id="${id}">+ 추가</button></div>
-      ${(L.contacts || []).map(c => `<div class="contact"><div><div class="n">${esc(c.name)} <span class="muted small">${esc([c.title, c.dept].filter(Boolean).join(' · '))}</span></div><div class="small">${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ''}</div><div class="small">${esc(c.email || '')}</div>${c.memo ? `<div class="small muted">${esc(c.memo)}</div>` : ''}</div><button class="btn sm ghost" data-act="contact-edit" data-id="${id}" data-cid="${c.cid}">고치기</button></div>`).join('') || '<div class="muted small">등록된 담당자가 없습니다</div>'}</div>
-    <div class="card"><h2>성향·조건</h2><div style="white-space:pre-wrap">${esc(L.prefs || '') || '<span class="muted small">아직 없습니다. 고치기에서 적어 두면 다음 딜 대주 고를 때 보입니다.</span>'}</div>${L.memo ? `<h3 style="margin-top:12px">메모</h3><div style="white-space:pre-wrap">${esc(L.memo)}</div>` : ''}</div>
+      ${(L.contacts || []).map(c => `<div class="contact"><div><div class="n">${esc(c.name)} <span class="muted small">${esc([c.title, c.dept].filter(Boolean).join(' · '))}</span></div><div class="small">${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ''}</div><div class="small">${esc(c.email || '')}</div>${c.memo ? `<div class="small muted">${esc(c.memo)}</div>` : ''}</div><button class="btn sm ghost" data-act="contact-edit" data-id="${id}" data-cid="${c.cid}">수정</button></div>`).join('') || '<div class="muted small">등록된 담당자가 없습니다</div>'}</div>
+    <div class="card"><h2>성향·조건</h2><div style="white-space:pre-wrap">${esc(L.prefs || '') || '<span class="muted small">아직 없습니다. 수정에서 적어 두면 다음 딜 대주 고를 때 보입니다.</span>'}</div>${L.memo ? `<h3 style="margin-top:12px">메모</h3><div style="white-space:pre-wrap">${esc(L.memo)}</div>` : ''}</div>
   </div></div>`;
 };
 
@@ -304,7 +304,7 @@ function listForm(l) {
   const isNew = !l; l = l || { items: [] };
   const sel = new Set((l.items || []).map(i => recipKey(i.lenderId, i.contactId)));
   modal({
-    title: isNew ? '새 대주 리스트' : '리스트 고치기', wide: true,
+    title: isNew ? '새 대주 리스트' : '리스트 수정', wide: true,
     body: `<div class="row2"><div class="field"><label>리스트 이름</label><input class="input" id="li-name" value="${esc(l.name || '')}" placeholder="예: 중도금 대주"></div><div class="field"><label>설명</label><input class="input" id="li-desc" value="${esc(l.desc || '')}" placeholder="예: 중도금 대출 주선 때 매번 보내는 곳"></div></div>
       <h3>담당자 고르기</h3>${pickerHtml(true)}`,
     foot: `${isNew ? '' : '<button class="btn danger" data-del style="margin-right:auto">리스트 삭제</button>'}<button class="btn" data-no>취소</button><button class="btn dark" data-ok>저장</button>`,
@@ -448,7 +448,7 @@ function mailStep2(tpls) {
       <div class="field"><label>제목</label><input class="input" id="m-subj" data-inp="m-subj" value="${esc(mail.subject)}"></div>
       <div class="field"><label>본문</label><div class="merge-chips">${['호칭', '기관', '담당자', '직함', '딜명', '보내는사람', '내직함', '내연락처'].map(k => `<button data-act="m-ins" data-k="${k}" type="button">{${k}}</button>`).join('')}<span class="small muted">누르면 커서 자리에 들어갑니다 · 받는 사람마다 바뀝니다</span></div>
         <textarea class="input" id="m-body" data-inp="m-body" style="min-height:280px">${esc(mail.body)}</textarea></div>
-      <label class="check"><input type="checkbox" data-chg="m-sig" ${mail.sig ? 'checked' : ''}> 내 서명 붙이기 <a href="#/settings" class="small">(서명 고치기)</a></label>
+      <label class="check"><input type="checkbox" data-chg="m-sig" ${mail.sig ? 'checked' : ''}> 내 서명 붙이기 <a href="#/settings" class="small">(서명 수정)</a></label>
       ${((Store.get(mail.dealId) || {}).files || []).length ? `<div class="field"><label>딜 자료에서 첨부 <span class="muted">- ${esc(dname(mail.dealId))} 자료 목록</span></label><div class="chips">${Store.get(mail.dealId).files.map(m => `<label class="chip click ${mail.files.some(f => f.fid === m.fid) ? 'on' : ''}"><input type="checkbox" data-chg="m-dfile" value="${m.fid}" ${mail.files.some(f => f.fid === m.fid) ? 'checked' : ''} style="display:none">📎 ${esc(m.name)} <span class="muted">${fmtSize(m.size || 0)}</span></label>`).join('')}</div></div>` : ''}
       <div class="field"><label>다른 파일 첨부 - 이 PC 안에서만 쓰이고 저장소로 올라가지 않습니다</label><input type="file" multiple data-chg="m-files">
         ${mail.files.length ? `<div class="small" style="margin-top:6px">${mail.files.map((f, i) => `📎 ${esc(f.name)} <span class="muted">${(f.size / 1048576).toFixed(1)}MB</span> <a href="#" data-act="m-unfile" data-i="${i}">빼기</a>`).join('<br>')}</div>` : ''}
@@ -486,7 +486,7 @@ A['tpl-save'] = async () => {
   const name = await askText('템플릿 이름', '예: 중도금 대출 태핑'); if (!name) return;
   await act(async () => { const t = await Store.create('tpl', { name, subject: mail.subject, body: mail.body }); mail.tplId = t.id; }, '템플릿을 저장했습니다');
 };
-A['tpl-update'] = () => { const t = Store.get(mail.tplId); if (t && confirm(`'${t.name}' 템플릿을 지금 내용으로 바꿀까요?`)) act(() => Store.update(t.id, x => ({ ...x, subject: mail.subject, body: mail.body })), '템플릿을 고쳤습니다'); };
+A['tpl-update'] = () => { const t = Store.get(mail.tplId); if (t && confirm(`'${t.name}' 템플릿을 지금 내용으로 바꿀까요?`)) act(() => Store.update(t.id, x => ({ ...x, subject: mail.subject, body: mail.body })), '템플릿을 수정했습니다'); };
 A['mail-next3'] = () => { mail.step = 3; mail.sent = {}; mail.logged = false; render(); };
 
 const METHODS = [
@@ -525,7 +525,7 @@ function mailStep3() {
       <label class="check"><input type="checkbox" data-chg="m-addmissing" ${mail.addMissing ? 'checked' : ''}> 보드에 없는 대주는 '자료송부'로 올리기</label>` : '<div class="small muted" style="margin-bottom:10px">딜을 고르지 않아 보드는 건드리지 않습니다.</div>'}
       <button class="btn gold" data-act="mail-log">발송 기록 남기기</button>`}
     </div>
-    <div class="card"><h3>보낼 내용</h3><div class="small"><b>${esc(renderMail(v[0] || {}).subject)}</b></div><div class="small muted">${mail.files.length ? '📎 ' + mail.files.map(f => esc(f.name)).join(', ') : '첨부 없음'}</div><button class="btn sm" style="margin-top:8px" data-act="mail-step" data-k="2">← 내용 고치기</button></div>
+    <div class="card"><h3>보낼 내용</h3><div class="small"><b>${esc(renderMail(v[0] || {}).subject)}</b></div><div class="small muted">${mail.files.length ? '📎 ' + mail.files.map(f => esc(f.name)).join(', ') : '첨부 없음'}</div><button class="btn sm" style="margin-top:8px" data-act="mail-step" data-k="2">← 내용 수정</button></div>
   </div></div>`;
 }
 A['m-method'] = el => { mail.method = el.dataset.k; render(); };
@@ -608,7 +608,7 @@ VIEWS.settings = () => {
       <div class="row2"><div class="field"><label>회사 전화 (T)</label><input class="input" id="p-tel" value="${esc(m.tel || '')}" placeholder="02-3774-0000" data-inp="sigprev"></div><div class="field"><label>팩스 (F) <span class="muted">- 비우면 ${esc(CFG.FAX_PREFIX || '')} + 회사 전화 끝 네 자리</span></label><input class="input" id="p-fax" value="${esc(m.fax || '')}" placeholder="자동" data-inp="sigprev"></div></div>
       <div class="field"><label>메일 보내는 방법 (기본)</label><select class="input" id="p-mode">${METHODS.map(([k, t]) => `<option value="${k}" ${(m.mailMode || 'outlook-pc') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
       <div class="field"><label>메일 서명 <span class="muted">- 팀 공통 양식에 위 정보가 자동으로 들어갑니다</span></label><div class="preview" id="sig-prev" style="white-space:pre-wrap;font-size:13px;line-height:1.6">${esc(sigFor(m))}</div>
-        <details style="margin-top:6px"><summary class="small muted" style="cursor:pointer">서명을 직접 고치기 (비우면 팀 양식)</summary><textarea class="input" id="p-sig" data-inp="sigprev" style="min-height:120px;margin-top:6px" placeholder="{이름띄움} {내부서} {내직함} {회사} {주소} {회사전화} {내연락처} {팩스} {내이메일} 사용 가능">${esc(m.sigCustom || '')}</textarea></details></div>
+        <details style="margin-top:6px"><summary class="small muted" style="cursor:pointer">서명 직접 수정 (비우면 팀 양식)</summary><textarea class="input" id="p-sig" data-inp="sigprev" style="min-height:120px;margin-top:6px" placeholder="{이름띄움} {내부서} {내직함} {회사} {주소} {회사전화} {내연락처} {팩스} {내이메일} 사용 가능">${esc(m.sigCustom || '')}</textarea></details></div>
       <button class="btn dark" data-act="profile-save">저장</button></div>
     <div class="grid">
       <div class="card"><h2>비밀번호 바꾸기</h2>

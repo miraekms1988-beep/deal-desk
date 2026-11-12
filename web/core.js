@@ -204,7 +204,7 @@ const Store = {
       }
       throw new Error(j.error === 'too large' ? '내용이 너무 깁니다.' : (j.error || '저장 실패'));
     }
-    throw new Error('다른 분과 동시에 고치고 있습니다. 잠시 뒤 다시 해 주세요.');
+    throw new Error('다른 분과 동시에 수정하고 있습니다. 잠시 뒤 다시 해 주세요.');
   },
 
   // 여러 건 한 번에. ops: [{ kind, v, base? }] (v.id 없으면 새로 만든다)
@@ -221,7 +221,7 @@ const Store = {
         const o = chunk[k];
         if (r.ok) { this.recs.set(o.v.id, { id: o.v.id, kind: o.kind, at: r.at, by: this.mid, v: o.v }); out.push(o.v); }
       });
-      if (j.results.some(r => !r.ok)) { await this.sync(); throw new Error('일부 항목을 다른 분이 먼저 고쳐 저장하지 못했습니다. 다시 해 주세요.'); }
+      if (j.results.some(r => !r.ok)) { await this.sync(); throw new Error('일부 항목을 다른 분이 먼저 수정해 저장하지 못했습니다. 다시 해 주세요.'); }
     }
     this.emit();
     return out;
