@@ -257,6 +257,28 @@ ul.bl { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
 .kcard { background: #fff; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.06); cursor: pointer; font-size: 13px; }
 .kcard .a { color: var(--ink3); font-size: 12px; }
 
+/* 휴대폰: 넓은 표 대신 카드 목록 */
+.mlist { display: flex; flex-direction: column; }
+.mgrp { display: flex; justify-content: space-between; gap: 8px; padding: 7px 14px; background: var(--line2); font-size: 12px; font-weight: 700; color: var(--ink2); }
+.mgrp span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.mrow { padding: 10px 14px; border-bottom: 1px solid var(--line2); cursor: pointer; }
+.mrow:active { background: #fafafa; }
+.mtop { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mtop b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtop .r { margin-left: auto; flex: none; }
+.msub { font-size: 12px; color: var(--ink2); margin-top: 3px; line-height: 1.5; word-break: break-word; }
+.msub .k { color: var(--ink3); }
+.mtot { padding: 10px 14px; background: var(--goldbg); font-weight: 700; font-size: 13px; border-radius: 0 0 var(--r) var(--r); }
+@media (max-width: 640px) {
+  table.stack thead { display: none; }
+  table.stack, table.stack tbody, table.stack tr { display: block; width: 100%; }
+  table.stack tr { padding: 8px 2px; border-bottom: 1px solid var(--line2); }
+  table.stack td { display: inline-block; border: none; padding: 2px 6px; white-space: normal; max-width: 100%; }
+  table.stack td.num { text-align: left; }
+  table.stack td[data-l]::before { content: attr(data-l) ' '; color: var(--ink3); font-size: 11px; font-weight: 600; }
+  table.stack td:first-child { display: block; }
+  .tbl-wrap:has(> table.stack) { overflow: visible; }
+}
 @media (max-width: 640px) {
   main { padding: 16px 14px 80px; }
   .top-in { padding: 0 14px; gap: 10px; }

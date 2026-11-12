@@ -99,6 +99,10 @@ function render() {
   if (drawerId) renderDrawer();
 }
 const VIEWS = {};
+// 휴대폰 폭이면 넓은 표 대신 카드 목록으로 그린다 (폭이 바뀌면 다시 그림)
+const phoneMQ = window.matchMedia('(max-width: 640px)');
+const isPhone = () => phoneMQ.matches;
+phoneMQ.addEventListener('change', () => { if (started) render(); });
 
 /* ---------- 이벤트 (한 곳에서) ---------- */
 document.addEventListener('click', e => {
@@ -338,9 +342,9 @@ VIEWS.deals = () => {
   const list = deals().filter(d => f === 'all' ? true : f === 'active' ? isActive(d) : !isActive(d));
   return `<div class="page-head"><div><h1>딜</h1><div class="sub">진행 중 ${deals().filter(isActive).length}건 · 전체 ${deals().length}건</div></div>
     <div class="actions"><div class="seg">${[['active', '진행 중'], ['done', '종결·드랍'], ['all', '전체']].map(([k, t]) => `<button class="${f === k ? 'on' : ''}" data-act="deals-filter" data-k="${k}">${t}</button>`).join('')}</div><button class="btn dark" data-act="deal-new">+ 새 딜</button></div></div>
-  <div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>딜</th><th>유형</th><th>단계</th><th class="num">목표(억)</th><th class="num">승인</th><th class="num">심의·검토</th><th class="num">대주</th><th>담당</th><th>기표 목표</th></tr></thead><tbody>
+  ${isPhone() ? (list.length ? `<div class="grid">${list.map(dealCard).join('')}</div>` : '<div class="card empty">해당하는 딜이 없습니다</div>') : `<div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>딜</th><th>유형</th><th>단계</th><th class="num">목표(억)</th><th class="num">승인</th><th class="num">심의·검토</th><th class="num">대주</th><th>담당</th><th>기표 목표</th></tr></thead><tbody>
   ${list.map(d => { const s = sums(tapsOf(d.id)); return `<tr class="row" data-act="go" data-to="#/deal/${encodeURIComponent(d.id)}" style="cursor:pointer"><td><b>${esc(d.name)}</b><div class="small muted">${esc([d.sponsor, d.builder].filter(Boolean).join(' · '))}</div></td><td>${esc(d.kind || '')}</td><td><span class="chip gold">${esc(d.stage || '')}</span></td><td class="num">${fmt(num(d.target))}</td><td class="num">${fmt(s.approved)}</td><td class="num">${fmt(s.committee + s.review)}</td><td class="num">${s.total}</td><td>${(d.owners || []).map(o => avatar(o, 1)).join(' ')}</td><td>${esc(d.due || '')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">해당하는 딜이 없습니다</td></tr>'}
-  </tbody></table></div></div>`;
+  </tbody></table></div></div>`}`;
 };
 A['deals-filter'] = el => { ui.dealsFilter = el.dataset.k; render(); };
 A['deal-new'] = () => dealForm();
@@ -458,7 +462,7 @@ A['tap-add'] = el => {
 
 /* ---------- 대주 상세 서랍 ---------- */
 let drawerId = null;
-A.tap = el => { drawerId = el.dataset.id; renderDrawer(); };
+A.tap = (el, e) => { if (e && e.target.closest && e.target.closest('select, input')) return; drawerId = el.dataset.id; renderDrawer(); };
 function closeDrawer() { drawerId = null; const d = $('#drawer'); if (d) d.remove(); const s = $('#drawer-scrim'); if (s) s.remove(); }
 A['drawer-close'] = closeDrawer;
 function renderDrawer() {

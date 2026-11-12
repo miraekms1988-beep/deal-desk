@@ -220,7 +220,7 @@ function dealInfo(d, taps) {
   const trRows = (tr.length ? tr : [{ name: '전체', amount: d.target }]).map(t => {
     const ts = tr.length ? taps.filter(x => x.tranche === t.name) : taps;
     const s = sums(ts), a = num(t.amount);
-    return `<tr><td><b>${esc(t.name)}</b>${t.rank ? ` <span class="muted small">${esc(t.rank)}</span>` : ''}</td><td class="num">${fmt(a)}</td><td>${esc(t.rate || '')}</td><td class="num" style="color:var(--green)">${fmt(s.approved)}</td><td class="num">${fmt(s.committee)}</td><td class="num">${fmt(s.review)}</td><td class="num"><b>${a ? fmt(Math.max(0, a - s.approved)) : ''}</b></td><td style="min-width:90px"><div class="bar"><span style="width:${a ? Math.min(100, s.approved / a * 100) : 0}%;background:var(--green)"></span><span style="width:${a ? Math.min(100, s.committee / a * 100) : 0}%;background:#a052d6"></span></div></td></tr>`;
+    return `<tr><td><b>${esc(t.name)}</b>${t.rank ? ` <span class="muted small">${esc(t.rank)}</span>` : ''}</td><td class="num" data-l="목표">${fmt(a)}</td><td data-l="금리">${esc(t.rate || '')}</td><td class="num" data-l="승인" style="color:var(--green)">${fmt(s.approved)}</td><td class="num" data-l="심의">${fmt(s.committee)}</td><td class="num" data-l="검토">${fmt(s.review)}</td><td class="num" data-l="남은"><b>${a ? fmt(Math.max(0, a - s.approved)) : ''}</b></td><td style="min-width:90px"><div class="bar"><span style="width:${a ? Math.min(100, s.approved / a * 100) : 0}%;background:var(--green)"></span><span style="width:${a ? Math.min(100, s.committee / a * 100) : 0}%;background:#a052d6"></span></div></td></tr>`;
   }).join('');
   const unassigned = tr.length ? taps.filter(x => !x.tranche && x.stage !== 'declined').length : 0;
   const docs = (d.docs || []);
@@ -229,7 +229,7 @@ function dealInfo(d, taps) {
   return `<div class="grid g2 info-grid">
     ${card('금융 조건', 'fin', kv([['대출금액', d.target ? fmt(num(d.target)) + '억원' : ''], ['금리', d.rate], ['수수료', d.fee], ['All-in', d.allin], ['대출기간', d.term], ['LTV', d.ltv], ['상환방법', d.repay], ['자금용도', d.purpose]]))}
     <div class="card"><div class="card-h"><h2>트랜치별 모집 현황</h2><button class="btn sm ghost" data-act="deal-sec" data-id="${d.id}" data-sec="tr">고치기</button></div>
-      <div class="tbl-wrap"><table class="t"><thead><tr><th>트랜치</th><th class="num">목표</th><th>금리</th><th class="num">승인</th><th class="num">심의</th><th class="num">검토</th><th class="num">남은 금액</th><th></th></tr></thead><tbody>${trRows}</tbody></table></div>
+      <div class="tbl-wrap"><table class="t stack"><thead><tr><th>트랜치</th><th class="num">목표</th><th>금리</th><th class="num">승인</th><th class="num">심의</th><th class="num">검토</th><th class="num">남은 금액</th><th></th></tr></thead><tbody>${trRows}</tbody></table></div>
       ${unassigned ? `<div class="small muted" style="margin-top:8px">트랜치를 안 정한 대주 ${unassigned}곳 - 태핑 보드에서 정해 주세요</div>` : ''}<div class="small muted" style="margin-top:6px">단위 억원</div></div>
     ${card('채권보전 · 신용보강', 'fin', d.security ? bullets(d.security) : '<div class="muted small">아직 없습니다</div>')}
     ${card('참여자', 'party', kv([['시행사(차주)', d.sponsor], ['시공사', d.builder], ['신탁사', d.trustee], ['주관·대리', d.arranger], ['연대보증', d.guarantor]]))}
@@ -250,6 +250,23 @@ function dealBoard(d, taps) {
   const upcoming = taps.filter(t => t.meetDate && t.meetDate >= t0 && t.stage !== 'declined').sort((a, b) => a.meetDate.localeCompare(b.meetDate));
   let board;
   if (!taps.length) board = `<div class="card empty"><b>아직 태핑한 대주가 없습니다</b>'+ 대주 추가'로 대주 DB·저장 리스트·추천에서 고르거나, 기존 태핑 리스트 엑셀을 가져오세요<div style="margin-top:12px;display:flex;gap:8px;justify-content:center"><button class="btn" data-act="tap-import" data-id="${id}">태핑 리스트 엑셀 가져오기</button><button class="btn dark" data-act="tap-add" data-id="${id}">+ 대주 추가</button></div></div>`;
+  else if (isPhone() && ui.boardView !== 'kanban') {
+    // 휴대폰: 대주마다 한 장 (위: 기관·단계, 아래: 금액·심의일·비고). 누르면 서랍에서 고친다
+    let html = '', cur = null, grp = [];
+    const tot = { a: 0, p: 0 };
+    const flushG = () => {
+      if (!grp.length) return;
+      const a = grp.filter(t => t.stage !== 'declined').reduce((s, t) => s + num(t.amount), 0), p = grp.filter(t => t.stage === 'approved').reduce((s, t) => s + (num(t.approved) || num(t.amount)), 0);
+      html += `<div class="mgrp"><span>${esc(cur)} · ${grp.length}곳</span><span>검토 ${fmt(a) || 0}${p ? ' · 승인 ' + fmt(p) : ''}</span></div>` + grp.map(t => {
+        const sub = [num(t.amount) ? `<span class="k">검토</span> ${fmt(num(t.amount))}억` : '', t.stage === 'approved' ? `<span class="k">승인</span> ${fmt(num(t.approved) || num(t.amount))}억` : '', t.meetDate ? `<span class="k">심의</span> ${shortDate(t.meetDate)}` : '', t.tranche ? esc(t.tranche) : '', esc(t.stage === 'declined' ? t.reason || '' : t.note || '')].filter(Boolean).join(' · ');
+        return `<div class="mrow" data-act="tap" data-id="${t.id}"${t.stage === 'declined' ? ' style="opacity:.6"' : ''}><div class="mtop"><b>${esc(lname(t.lenderId))}</b>${needsFollow(t) ? '<span class="chip warn">팔로업</span>' : ''}<span class="r">${stageSelect(t)}</span></div>${sub ? `<div class="msub">${sub}</div>` : ''}</div>`;
+      }).join('');
+      tot.a += a; tot.p += p; grp = [];
+    };
+    for (const t of sorted) { const ty = (Store.get(t.lenderId) || {}).type || '기타'; if (ty !== cur) { flushG(); cur = ty; } grp.push(t); }
+    flushG();
+    board = `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${html}</div><div class="mtot">합계 ${shown.length}곳 · 검토 ${fmt(tot.a) || 0}억 · 승인 ${fmt(tot.p) || 0}억</div></div><div class="small muted" style="margin-top:6px">카드를 누르면 금액·심의일·메모를 고칠 수 있습니다</div>`;
+  }
   else if (ui.boardView === 'kanban') {
     board = `<div class="kanban">${STAGES.map(st => { const col = sorted.filter(t => t.stage === st.k); return `<div class="kcol"><h4><span style="color:${st.c}">● ${st.t}</span><span class="muted">${col.length}</span></h4>${col.map(t => `<div class="kcard" data-act="tap" data-id="${t.id}"><b>${esc(lname(t.lenderId))}</b>${needsFollow(t) ? ' <span class="chip warn">팔로업</span>' : ''}<div class="a">${esc((Store.get(t.lenderId) || {}).type || '')}${num(t.amount) ? ' · ' + fmt(num(t.amount)) + '억' : ''}${t.meetDate ? ' · 심의 ' + shortDate(t.meetDate) : ''}</div></div>`).join('')}</div>`; }).join('')}</div>`;
   } else {
