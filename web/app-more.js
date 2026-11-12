@@ -778,6 +778,8 @@ async function checkVersion() {
 }
 checkVersion();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+// 딜 데스크 자체 서비스워커(범위 /deal-desk/) - PF 레이더(범위 /)보다 좁아서 이 주소는 딜 데스크 앱이 된다
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => { });
 
 /* ---------- 시작 ---------- */
 showGate = (orig => async () => {

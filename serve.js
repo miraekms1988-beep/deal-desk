@@ -1,7 +1,7 @@
 // 딜 데스크 - 로컬 시험용 정적 서버 (의존성 없음): node serve.js [포트]
 const http = require('http'), fs = require('fs'), path = require('path');
 const root = path.join(__dirname, 'web'), port = +process.argv[2] || 8130;
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.bcmap': 'application/octet-stream','.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.cmd': 'application/octet-stream' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.bcmap': 'application/octet-stream','.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.cmd': 'application/octet-stream', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8' };
 http.createServer((req, res) => {
   // 시험용: 브라우저에서 만든 파일(엑셀·eml)을 .tmp 에 받아 실제 프로그램으로 열어 본다. 이 서버는 로컬 시험 전용.
   if (req.method === 'POST' && req.url.startsWith('/__save?name=')) {
