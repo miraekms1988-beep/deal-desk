@@ -229,7 +229,7 @@ A['contact-pop'] = (el, e) => {
   modal({
     title: `${c.name || ''} ${c.title || ''}`.trim() || '담당자',
     body: `<dl class="kv2"><dt>기관</dt><dd>${esc(L.name || '')}</dd>${c.dept ? `<dt>부서</dt><dd>${esc(c.dept)}</dd>` : ''}
-      <dt>휴대폰</dt><dd>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">-</span>'}</dd>
+      <dt>휴대폰</dt><dd>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">-</span>'}</dd>${c.tel ? `<dt>회사 전화</dt><dd><a href="tel:${esc(c.tel)}">${esc(c.tel)}</a></dd>` : ''}
       <dt>이메일</dt><dd>${c.email ? esc(c.email) : '<span class="muted">-</span>'}</dd>${c.memo ? `<dt>메모</dt><dd>${esc(c.memo)}</dd>` : ''}
       <dt>이 딜</dt><dd>${assigned ? '<span class="chip gold">검토 담당자</span>' : '<span class="muted">검토 담당자로 지정되지 않음 (대주 첫 담당자라 표시)</span>'}</dd></dl>
       ${(L.contacts || []).length > 1 ? `<div class="small muted" style="margin-top:10px">${esc(L.name)} 담당자 ${(L.contacts || []).length}명 · '담당자 바꾸기'에서 이 딜 담당을 고르세요</div>` : ''}`,
@@ -303,8 +303,8 @@ VIEWS.deal = id => {
     <div class="bar" style="height:8px;margin-top:14px"><span style="width:${w(s.approved)};background:var(--green)"></span><span style="width:${w(s.committee)};background:#a052d6"></span><span style="width:${w(s.review)};background:var(--amber)"></span></div>
     <div class="parties">${parties.length ? parties.map(([k, v]) => `<span><em>${k}</em>${esc(short(v, 34))}</span>`).join('') : '<span class="muted small">시행·시공·신탁 정보가 없습니다 - 딜 개요에서 채우거나 IM 파일을 이 화면에 끌어다 놓으세요</span>'}</div>
   </div>
-  <div class="tabs">${[['board', `태핑 보드 <b>${taps.length}</b>`], ['info', '딜 개요'], ['act', `대화 ${unreadOf(id).length ? unreadBadge(unreadOf(id).length) : `<b>${msgsOf(id).length}</b>`}`], ['tasks', `할 일 ${(() => { const o = tasksOf(id).filter(t => !t.done); const u = o.filter(t => ['over', 'today'].includes(dueState(t))).length; return u ? unreadBadge(u) : `<b>${o.length}</b>`; })()}`]].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="deal-tab" data-k="${k}">${t}</button>`).join('')}
-    ${tab === 'board' && !isPhone() ? `<button class="dock-btn${ui.chatDock ? ' on' : ''}" data-act="chat-dock" title="보드 옆에 대화 열기">💬 옆에 대화${unreadOf(id).length ? ' ' + unreadBadge(unreadOf(id).length) : ''}</button>` : ''}</div>`;
+  <div class="tabs">${[['board', `태핑 보드 <b>${taps.length}</b>`], ['info', '딜 개요'], ['act', `${unreadOf(id).length ? '<span class="live"></span>' : ''}업무 대화 ${unreadOf(id).length ? unreadBadge(unreadOf(id).length) : `<b>${msgsOf(id).length}</b>`}`], ['tasks', `할 일 ${(() => { const o = tasksOf(id).filter(t => !t.done); const u = o.filter(t => ['over', 'today'].includes(dueState(t))).length; return u ? unreadBadge(u) : `<b>${o.length}</b>`; })()}`]].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="deal-tab" data-k="${k}">${t}</button>`).join('')}
+    ${tab === 'board' && !isPhone() ? `<button class="dock-btn${ui.chatDock ? ' on' : ''}${unreadOf(id).length ? ' has-new' : ''}" data-act="chat-dock" title="보드 옆에 업무 대화 열기·닫기"><span class="live"></span>💬 업무 대화${unreadOf(id).length ? ' ' + unreadBadge(unreadOf(id).length) : ''}</button>` : ''}</div>`;
 
   if (tab === 'info') return head + dealInfo(d, taps);
   if (tab === 'act') return head + `<div class="card chat-card">${chatHtml(id)}</div>`;

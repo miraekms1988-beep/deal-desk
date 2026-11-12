@@ -72,7 +72,7 @@ function chatHtml(dealId, dock) {
   const draft = ((ui.chatDraft || {})[dealId]) || '';
   const seg = `<div class="seg chat-seg"><button class="${ui.chatLogs !== 'all' ? 'on' : ''}" data-act="chat-logs" data-k="msg">대화만</button><button class="${ui.chatLogs === 'all' ? 'on' : ''}" data-act="chat-logs" data-k="all">기록 포함</button></div>`;
   return `<div class="chat${dock ? ' dock' : ''}" data-deal="${dealId}">
-    <div class="chat-h">${dock ? `<b>대화</b><span class="muted small">${esc(dname(dealId))}</span>` : `<b>대화</b><span class="muted small">이 딜 얘기 · @이름 · #대주</span>`}${seg}${dock ? '<button class="x-btn" data-act="chat-dock" title="닫기">×</button>' : ''}</div>
+    <div class="chat-h">${dock ? `<b><span class="live"></span>업무 대화</b><span class="muted small">${esc(dname(dealId))}</span>` : `<b><span class="live"></span>업무 대화</b><span class="muted small">이 딜 얘기 · @이름 · #대주</span>`}${seg}${dock ? '<button class="x-btn" data-act="chat-dock" title="닫기">×</button>' : ''}</div>
     <div class="chat-list" data-deal="${dealId}">${chatListHtml(dealId)}</div>
     <div class="chat-comp"><div class="chat-ac hide"></div>
       <textarea class="input chat-input" data-deal="${dealId}" rows="2" placeholder="메시지 · @이름 부르기 · #대주 붙이기 · Enter 보내기, Shift+Enter 줄바꿈">${esc(draft)}</textarea>

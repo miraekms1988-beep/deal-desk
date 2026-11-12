@@ -163,6 +163,29 @@ input.cell.date { width: 118px; text-align: left; }
 .aci.on, .aci:hover { background: var(--goldbg); }
 @media (max-width: 1240px) { .with-chat { grid-template-columns: minmax(0, 1fr) 320px; } }
 @media (max-width: 640px) { .chat-card .chat { height: calc(100vh - 230px); min-height: 380px; } .chat-h .muted { display: none; } }
+/* '업무 대화' 버튼: 늘 눈에 띄게, 새 메시지면 금빛 고리가 퍼지고 숫자가 통통 */
+.dock-btn { background: var(--char) !important; color: #fff !important; border-color: var(--char) !important; font-weight: 700; font-size: 12.5px !important; padding: 6px 14px !important; border-radius: 99px !important; display: inline-flex; align-items: center; gap: 4px; transition: transform .15s, background .15s; }
+.dock-btn:hover { transform: translateY(-1px); }
+.dock-btn.on { background: var(--gold) !important; color: var(--char) !important; border-color: var(--gold) !important; }
+.dock-btn.has-new { animation: dockPulse 1.8s ease-out infinite; }
+.dock-btn.has-new .ubadge, .tabs button .ubadge { animation: badgeBounce 1.8s ease-in-out infinite; }
+.live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #30d158; margin-right: 5px; vertical-align: 1px; box-shadow: 0 0 0 0 rgba(48,209,88,.6); animation: liveDot 2s ease-out infinite; }
+.dock-btn.on .live { background: var(--char); animation: none; }
+@keyframes dockPulse { 0% { box-shadow: 0 0 0 0 rgba(201,169,110,.75); } 70% { box-shadow: 0 0 0 12px rgba(201,169,110,0); } 100% { box-shadow: 0 0 0 0 rgba(201,169,110,0); } }
+@keyframes badgeBounce { 0%, 55%, 100% { transform: translateY(0); } 20% { transform: translateY(-4px); } 35% { transform: translateY(0); } 45% { transform: translateY(-2px); } }
+@keyframes liveDot { 0% { box-shadow: 0 0 0 0 rgba(48,209,88,.6); } 70% { box-shadow: 0 0 0 6px rgba(48,209,88,0); } 100% { box-shadow: 0 0 0 0 rgba(48,209,88,0); } }
+.chat.dock { animation: dockIn .22s ease-out; }
+@keyframes dockIn { from { opacity: 0; transform: translateX(16px); } }
+@media (prefers-reduced-motion: reduce) { .dock-btn.has-new, .ubadge, .live, .chat.dock { animation: none !important; } }
+/* 명함 읽기 */
+.card-drop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; margin-bottom: 12px; border: 1.5px dashed var(--line); border-radius: 12px; background: #fafafb; }
+.card-drop.over { border-color: var(--gold); background: var(--goldbg); }
+.card-drop.busy { opacity: .8; pointer-events: none; }
+.card-drop .card-st { flex-basis: 100%; }
+.card-drop .card-st:empty { display: none; }
+.card-lines { display: flex; flex-wrap: wrap; gap: 5px; }
+.card-lines .chip { border: 1px solid var(--line); background: #fff; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.card-lines .chip:hover { border-color: var(--gold); background: var(--goldbg); }
 /* 할 일 */
 .msg .mact { display: flex; gap: 8px; align-self: start; padding-top: 3px; }
 .msg .mact .mdel { visibility: hidden; font-size: 11px; color: var(--ink3); }

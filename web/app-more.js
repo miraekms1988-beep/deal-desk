@@ -14,7 +14,7 @@ VIEWS.lenders = () => {
   const stat = lid => { const ts = taps.filter(t => t.lenderId === lid); return { live: ts.filter(t => isActive(Store.get(t.dealId)) && t.stage !== 'declined').length, ok: ts.filter(t => t.stage === 'approved').length, no: ts.filter(t => t.stage === 'declined').length }; };
   const counts = Object.fromEntries(LENDER_TYPES.map(t => [t, all.filter(L => L.type === t).length]));
   return `<div class="page-head"><div><h1>대주</h1><div class="sub">${all.length}곳 · 담당자 ${all.reduce((a, L) => a + (L.contacts || []).length, 0)}명</div></div>
-    <div class="actions"><button class="btn" data-act="lender-paste">엑셀에서 붙여넣기</button><button class="btn dark" data-act="lender-new">+ 대주 등록</button></div></div>
+    <div class="actions"><button class="btn" data-act="card-new">📷 명함으로 등록</button><button class="btn" data-act="lender-paste">엑셀에서 붙여넣기</button><button class="btn dark" data-act="lender-new">+ 대주 등록</button></div></div>
   <div class="toolbar"><div class="search"><input class="input" id="lq" data-inp="lq" placeholder="기관·담당자·이메일 검색" value="${esc(ui.lenderQ)}"></div></div>
   <div class="chips" style="margin-bottom:12px"><span class="chip click ${!ty ? 'on' : ''}" data-act="lty" data-k="">전체 ${all.length}</span>${LENDER_TYPES.filter(t => counts[t]).map(t => `<span class="chip click ${ty === t ? 'on' : ''}" data-act="lty" data-k="${t}">${t} ${counts[t]}</span>`).join('')}</div>
   <div id="lres">${all.length && isPhone() ? `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<div class="mrow" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}"><div class="mtop"><b>${esc(L.name)}</b><span class="chip">${esc(L.type || '')}</span><span class="r small muted">${[s.live ? '진행 ' + s.live : '', s.ok ? '승인 ' + s.ok : '', s.no ? '불참 ' + s.no : ''].filter(Boolean).join(' · ')}</span></div>${c.name || c.phone ? `<div class="msub">${cnames(L)}${c.phone ? ` · <a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()">${esc(c.phone)}</a>` : ''}</div>` : ''}</div>`; }).join('') || '<div class="empty">검색 결과가 없습니다</div>'}</div></div>`
@@ -34,11 +34,11 @@ A.lty = el => { ui.lenderType = el.dataset.k; render(); };
 A['lender-new'] = () => lenderForm(null, L => { location.hash = '#/lender/' + encodeURIComponent(L.id); });
 A['lender-edit'] = el => lenderForm(Store.get(el.dataset.id));
 
-function lenderForm(L, after) {
+function lenderForm(L, after, prefill) {
   const isNew = !L; L = L || { type: '캐피탈', contacts: [] };
   modal({
     title: isNew ? '대주 등록' : '대주 정보 수정',
-    body: `<div class="row2"><div class="field"><label>기관 이름</label><input class="input" id="l-name" value="${esc(L.name || '')}"></div>
+    body: `${isNew ? cardDropHtml() : ''}<div class="row2"><div class="field"><label>기관 이름</label><input class="input" id="l-name" value="${esc(L.name || '')}"></div>
       <div class="field"><label>유형</label><select class="input" id="l-type">${LENDER_TYPES.map(t => `<option ${L.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
       <div class="field"><label>성향·조건 (다음 딜 고를 때 참고)</label><textarea class="input" id="l-prefs" style="min-height:70px" placeholder="예: 수도권만, 1군 시공사 책준 필수, 건당 200억 한도, 선순위만">${esc(L.prefs || '')}</textarea></div>
       <div class="field"><label>메모</label><textarea class="input" id="l-memo" style="min-height:50px">${esc(L.memo || '')}</textarea></div>
@@ -48,6 +48,15 @@ function lenderForm(L, after) {
       el.querySelector('[data-no]').onclick = close;
       const crow = () => `<div class="c-row contact" style="display:block"><div class="row3"><div class="field"><label>이름</label><input class="input" data-c="name"></div><div class="field"><label>직함</label><input class="input" data-c="title"></div><div class="field"><label>부서</label><input class="input" data-c="dept"></div></div><div class="row2"><div class="field"><label>휴대폰</label><input class="input" data-c="phone"></div><div class="field"><label>이메일</label><input class="input" data-c="email" type="email"></div></div></div>`;
       if (isNew) { $('#c-rows', el).innerHTML = crow(); $('#c-more', el).onclick = () => { $('#c-rows', el).insertAdjacentHTML('beforeend', crow()); $$('.c-row', el).pop().querySelector('input').focus(); }; }
+      // 명함으로 채우기: 기관 이름·유형 + 비어 있는 담당자 줄(없으면 한 줄 더)
+      const fillCard = r => {
+        let n = 0;
+        if (r.org && !val(el, 'l-name')) { $('#l-name', el).value = r.org; $('#l-name', el).closest('.field').classList.add('filled'); n++; const ty = guessType(r.org); if (ty && ty !== '기타') $('#l-type', el).value = ty; }
+        let row = $$('.c-row', el).find(x => !$$('input', x).some(i => i.value.trim()));
+        if (!row) { $('#c-rows', el).insertAdjacentHTML('beforeend', crow()); row = $$('.c-row', el).pop(); }
+        return n + fillInputs(row, { '[data-c="name"]': r.name, '[data-c="title"]': r.title, '[data-c="dept"]': r.dept, '[data-c="phone"]': r.phone || r.tel, '[data-c="email"]': r.email });
+      };
+      if (isNew) { cardFillUi(el, fillCard); if (prefill) fillCard(prefill); }
       const del = el.querySelector('[data-del]');
       if (del) del.onclick = async () => {
         const n = Store.all('tap').filter(t => t.lenderId === L.id).length;
@@ -81,20 +90,24 @@ function matchLender(map, name) {
   return hits.length === 1 ? hits[0][1] : null;
 }
 
-function contactForm(lid, c, after) {
+function contactForm(lid, c, after, prefill) {
   const isNew = !c; c = c || {};
   modal({
     title: (isNew ? '담당자 추가 · ' : '담당자 수정 · ') + lname(lid),
-    body: `<div class="row3"><div class="field"><label>이름</label><input class="input" id="c-name" value="${esc(c.name || '')}"></div><div class="field"><label>직함</label><input class="input" id="c-title" value="${esc(c.title || '')}"></div><div class="field"><label>부서</label><input class="input" id="c-dept" value="${esc(c.dept || '')}"></div></div>
+    body: `${isNew ? cardDropHtml() : ''}<div class="row3"><div class="field"><label>이름</label><input class="input" id="c-name" value="${esc(c.name || '')}"></div><div class="field"><label>직함</label><input class="input" id="c-title" value="${esc(c.title || '')}"></div><div class="field"><label>부서</label><input class="input" id="c-dept" value="${esc(c.dept || '')}"></div></div>
       <div class="row2"><div class="field"><label>휴대폰</label><input class="input" id="c-phone" value="${esc(c.phone || '')}"></div><div class="field"><label>이메일</label><input class="input" id="c-email" type="email" value="${esc(c.email || '')}"></div></div>
+      <div class="row2"><div class="field"><label>회사 전화</label><input class="input" id="c-tel" value="${esc(c.tel || '')}"></div><div></div></div>
       <div class="field"><label>메모</label><input class="input" id="c-memo" value="${esc(c.memo || '')}" placeholder="예: 심사역, 오전 통화 선호"></div>`,
     foot: `${isNew ? '' : '<button class="btn danger" data-del style="margin-right:auto">삭제</button>'}<button class="btn" data-no>취소</button><button class="btn dark" data-ok>저장</button>`,
     onMount: (el, close) => {
       el.querySelector('[data-no]').onclick = close;
       const del = el.querySelector('[data-del]');
       if (del) del.onclick = () => act(async () => { await Store.update(lid, L => { L.contacts = (L.contacts || []).filter(x => x.cid !== c.cid); return L; }); close(); }, '지웠습니다');
+      // 명함으로 채우기
+      const fillCard = r => fillInputs(el, { '#c-name': r.name, '#c-title': r.title, '#c-dept': r.dept, '#c-phone': r.phone, '#c-tel': r.tel, '#c-email': r.email });
+      if (isNew) { cardFillUi(el, fillCard); if (prefill) fillCard(prefill); }
       el.querySelector('[data-ok]').onclick = async () => {
-        const v = { cid: c.cid || uid(), name: val(el, 'c-name'), title: val(el, 'c-title'), dept: val(el, 'c-dept'), phone: val(el, 'c-phone'), email: val(el, 'c-email'), memo: val(el, 'c-memo') };
+        const v = { cid: c.cid || uid(), name: val(el, 'c-name'), title: val(el, 'c-title'), dept: val(el, 'c-dept'), phone: val(el, 'c-phone'), tel: val(el, 'c-tel'), email: val(el, 'c-email'), memo: val(el, 'c-memo') };
         if (!v.name && !v.email) return toast('이름이나 이메일을 적어 주세요', true);
         await act(async () => { await Store.update(lid, L => { L.contacts = L.contacts || []; const i = L.contacts.findIndex(x => x.cid === v.cid); if (i >= 0) L.contacts[i] = v; else L.contacts.push(v); return L; }); close(); if (after) after(v); }, '저장했습니다');
       };
