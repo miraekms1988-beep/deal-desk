@@ -299,13 +299,16 @@ function makeZip(files) { // files: [{name, data(string|Uint8Array)}]
 }
 
 /* 엑셀 한 장. rows: [[{v, s}]] (s = 아래 STYLE 번호), cols: 너비 배열, merges: ['A1:F1'] */
-const XS = { plain: 0, title: 1, head: 2, text: 3, num: 4, subText: 5, subNum: 6, totText: 7, totNum: 8, note: 9, center: 10, sectText: 11 };
+const XS = { plain: 0, title: 1, head: 2, text: 3, num: 4, subText: 5, subNum: 6, totText: 7, totNum: 8, note: 9, center: 10, sectText: 11,
+  won: 12, pct2: 13, pct3: 14, date: 15, months: 16, days: 17, sect: 18, totPct: 19, totWon: 20 };
+// 셀: { v } 값, { f, v } 수식(+ 미리 계산한 값 - 엑셀이 열 때 다시 계산한다)
 function makeXlsx({ sheet = 'Sheet1', rows, cols, merges = [] }) {
   const x = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const colName = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
   const sd = rows.map((r, ri) => `<row r="${ri + 1}"${r.h ? ` ht="${r.h}" customHeight="1"` : ''}>` + (r.cells || r).map((c, ci) => {
     if (c == null) return '';
     const ref = colName(ci) + (ri + 1), s = c.s || 0;
+    if (c.f) return `<c r="${ref}" s="${s}"><f>${x(c.f)}</f>${typeof c.v === 'number' && isFinite(c.v) ? `<v>${c.v}</v>` : ''}</c>`;
     if (c.v === '' || c.v == null) return `<c r="${ref}" s="${s}"/>`;
     if (typeof c.v === 'number') return `<c r="${ref}" s="${s}"><v>${c.v}</v></c>`;
     return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${x(c.v)}</t></is></c>`;
@@ -313,12 +316,12 @@ function makeXlsx({ sheet = 'Sheet1', rows, cols, merges = [] }) {
   const ws = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols>${cols.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData>${merges.length ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : ''}<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   const font = '맑은 고딕';
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0;-#,##0;&quot;-&quot;"/></numFmts>
-<fonts count="5"><font><sz val="10"/><name val="${font}"/></font><font><b/><sz val="14"/><name val="${font}"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="${font}"/></font><font><b/><sz val="10"/><name val="${font}"/></font><font><sz val="9"/><color rgb="FF707070"/><name val="${font}"/></font></fonts>
+<numFmts count="5"><numFmt numFmtId="164" formatCode="#,##0;-#,##0;&quot;-&quot;"/><numFmt numFmtId="165" formatCode="0.000%"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/><numFmt numFmtId="167" formatCode="#&quot;개월&quot;"/><numFmt numFmtId="168" formatCode="#&quot;일&quot;"/></numFmts>
+<fonts count="6"><font><sz val="10"/><name val="${font}"/></font><font><b/><sz val="14"/><name val="${font}"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="${font}"/></font><font><b/><sz val="10"/><name val="${font}"/></font><font><sz val="9"/><color rgb="FF707070"/><name val="${font}"/></font><font><b/><sz val="11"/><name val="${font}"/></font></fonts>
 <fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2B2B2E"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F1F3"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE4DCCB"/></patternFill></fill></fills>
 <borders count="2"><border/><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom></border></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="12">
+<cellXfs count="21">
 <xf fontId="0"/>
 <xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
@@ -331,11 +334,20 @@ function makeXlsx({ sheet = 'Sheet1', rows, cols, merges = [] }) {
 <xf fontId="4" applyFont="1"/>
 <xf fontId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
 <xf fontId="3" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="0" borderId="1" numFmtId="3" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="0" borderId="1" numFmtId="10" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="0" borderId="1" numFmtId="165" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="0" borderId="1" numFmtId="166" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="0" borderId="1" numFmtId="167" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="0" borderId="1" numFmtId="168" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="5" applyFont="1"/>
+<xf fontId="3" fillId="4" borderId="1" numFmtId="10" applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="3" fillId="4" borderId="1" numFmtId="3" applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"/>
 </cellXfs></styleSheet>`;
   return makeZip([
     { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
     { name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
-    { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${x(sheet.slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+    { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${x(sheet.slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>` },
     { name: 'xl/_rels/workbook.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
     { name: 'xl/styles.xml', data: styles },
     { name: 'xl/worksheets/sheet1.xml', data: ws },

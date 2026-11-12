@@ -84,7 +84,7 @@ const NAV = [['home', '홈'], ['deals', '딜'], ['lenders', '대주'], ['lists',
 function render() {
   pending = false;
   const r = route(), m = me();
-  const navOn = { deal: 'deals', lender: 'lenders' }[r.name] || r.name;
+  const navOn = { deal: 'deals', cost: 'deals', lender: 'lenders' }[r.name] || r.name;
   const view = VIEWS[r.name] || VIEWS.home;
   const sy = window.scrollY;
   app.innerHTML = `${MOCK ? '<div class="mock-bar">시험 모드 - 이 브라우저 안에만 저장됩니다 (config.js 에 저장소 주소를 넣으면 팀 공유)</div>' : ''}
@@ -96,6 +96,7 @@ function render() {
   <main id="main">${view(r.arg)}</main>`;
   if (r.name === ui._lastRoute) window.scrollTo(0, sy);
   ui._lastRoute = r.name;
+  if (r.name === 'cost' && typeof costRefresh === 'function') costRefresh();
   if (drawerId) renderDrawer();
 }
 const VIEWS = {};

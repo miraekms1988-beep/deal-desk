@@ -290,7 +290,7 @@ VIEWS.deal = id => {
 
   const head = `<div class="page-head" style="margin-bottom:12px"><div><div class="small muted"><a href="#/deals">딜</a> ›</div><h1>${esc(d.name)}</h1>
       <div class="chips" style="margin-top:6px"><span class="chip">${esc(d.kind || '')}</span><span class="chip gold">${esc(d.stage || '')}</span>${(d.owners || []).map(o => `<span class="chip">${esc(mname(o))}</span>`).join('')}</div></div>
-    <div class="actions"><button class="btn" data-act="kakao" data-id="${id}">카톡 보고</button><button class="btn" data-act="export" data-id="${id}">엑셀</button><button class="btn" data-act="mail-deal" data-id="${id}">메일 쓰기</button><button class="btn dark" data-act="tap-add" data-id="${id}">+ 대주 추가</button></div></div>
+    <div class="actions"><button class="btn" data-act="kakao" data-id="${id}">카톡 보고</button><button class="btn" data-act="export" data-id="${id}">엑셀</button><button class="btn" data-act="mail-deal" data-id="${id}">메일 쓰기</button><button class="btn" data-act="cost-open" data-id="${id}">비용표${costsOf(id).length ? ` <span class="muted small">${pct(calcCost(costsOf(id)[0]).allin)}</span>` : ''}</button><button class="btn dark" data-act="tap-add" data-id="${id}">+ 대주 추가</button></div></div>
   <div class="card deal-sum">
     <div class="tiles">
       ${tile('대출금액', tgt ? fmt(tgt) + '<small>억</small>' : '', trList(d).length > 1 ? trList(d).map(t => `${esc(t.name)} ${fmt(num(t.amount)) || '-'}`).join(' · ') : '', 'dark')}
