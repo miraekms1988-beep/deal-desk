@@ -164,7 +164,11 @@ input.cell.date { width: 118px; text-align: left; }
 @media (max-width: 1240px) { .with-chat { grid-template-columns: minmax(0, 1fr) 320px; } }
 @media (max-width: 640px) { .chat-card .chat { height: calc(100vh - 230px); min-height: 380px; } .chat-h .muted { display: none; } }
 /* '업무 대화' 버튼: 늘 눈에 띄게, 새 메시지면 금빛 고리가 퍼지고 숫자가 통통 */
-.dock-btn { background: var(--char) !important; color: #fff !important; border-color: var(--char) !important; font-weight: 700; font-size: 12.5px !important; padding: 6px 14px !important; border-radius: 99px !important; display: inline-flex; align-items: center; gap: 4px; transition: transform .15s, background .15s; }
+.dock-btn { background: var(--char) !important; color: #fff !important; border-color: var(--char) !important; font-weight: 600; font-size: 12px !important; letter-spacing: -.01em; padding: 5px 13px !important; border-radius: 99px !important; display: inline-flex; align-items: center; gap: 5px; transition: transform .15s, background .15s; }
+.dock-btn .ico { width: 14px; height: 14px; color: var(--gold); flex: none; }
+.dock-btn.on .ico { color: var(--char); }
+.dock-btn .ubadge { min-width: 16px; height: 16px; font-size: 10px; margin-left: 2px; }
+.dock-btn .live { margin-right: 1px; }
 .dock-btn:hover { transform: translateY(-1px); }
 .dock-btn.on { background: var(--gold) !important; color: var(--char) !important; border-color: var(--gold) !important; }
 .dock-btn.has-new { animation: dockPulse 1.8s ease-out infinite; }
