@@ -17,12 +17,19 @@ VIEWS.lenders = () => {
     <div class="actions"><button class="btn" data-act="lender-paste">엑셀에서 붙여넣기</button><button class="btn dark" data-act="lender-new">+ 대주 등록</button></div></div>
   <div class="toolbar"><div class="search"><input class="input" id="lq" data-inp="lq" placeholder="기관·담당자·이메일 검색" value="${esc(ui.lenderQ)}"></div></div>
   <div class="chips" style="margin-bottom:12px"><span class="chip click ${!ty ? 'on' : ''}" data-act="lty" data-k="">전체 ${all.length}</span>${LENDER_TYPES.filter(t => counts[t]).map(t => `<span class="chip click ${ty === t ? 'on' : ''}" data-act="lty" data-k="${t}">${t} ${counts[t]}</span>`).join('')}</div>
-  ${all.length && isPhone() ? `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<div class="mrow" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}"><div class="mtop"><b>${esc(L.name)}</b><span class="chip">${esc(L.type || '')}</span><span class="r small muted">${[s.live ? '진행 ' + s.live : '', s.ok ? '승인 ' + s.ok : '', s.no ? '불참 ' + s.no : ''].filter(Boolean).join(' · ')}</span></div>${c.name || c.phone ? `<div class="msub">${cnames(L)}${c.phone ? ` · <a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()">${esc(c.phone)}</a>` : ''}</div>` : ''}</div>`; }).join('') || '<div class="empty">검색 결과가 없습니다</div>'}</div></div>`
+  <div id="lres">${all.length && isPhone() ? `<div class="card" style="padding:0;overflow:hidden"><div class="mlist">${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<div class="mrow" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}"><div class="mtop"><b>${esc(L.name)}</b><span class="chip">${esc(L.type || '')}</span><span class="r small muted">${[s.live ? '진행 ' + s.live : '', s.ok ? '승인 ' + s.ok : '', s.no ? '불참 ' + s.no : ''].filter(Boolean).join(' · ')}</span></div>${c.name || c.phone ? `<div class="msub">${cnames(L)}${c.phone ? ` · <a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()">${esc(c.phone)}</a>` : ''}</div>` : ''}</div>`; }).join('') || '<div class="empty">검색 결과가 없습니다</div>'}</div></div>`
   : all.length ? `<div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>기관</th><th>유형</th><th>담당자</th><th>휴대폰</th><th>이메일</th><th class="num">진행 딜</th><th class="num">승인</th><th class="num">불참</th><th>성향·조건</th></tr></thead><tbody>
     ${list.map(L => { const c = (L.contacts || [])[0] || {}, s = stat(L.id); return `<tr class="row" data-act="go" data-to="#/lender/${encodeURIComponent(L.id)}" style="cursor:pointer"><td><b>${esc(L.name)}</b></td><td>${esc(L.type || '')}</td><td class="wrap" style="min-width:140px">${cnames(L)}</td><td>${esc(c.phone || '')}</td><td>${esc(c.email || '')}</td><td class="num">${s.live || ''}</td><td class="num">${s.ok || ''}</td><td class="num">${s.no || ''}</td><td class="ell small muted">${esc(L.prefs || '')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">검색 결과가 없습니다</td></tr>'}
-  </tbody></table></div></div>` : `<div class="card empty"><b>대주가 아직 없습니다</b>설정 › '기본 대주 목록 불러오기'로 은행·캐피탈·저축은행 등 180여 곳을 한 번에 넣거나,<br>기존 연락처 엑셀을 '엑셀에서 붙여넣기'로 가져오세요.</div>`}`;
+  </tbody></table></div></div>` : `<div class="card empty"><b>대주가 아직 없습니다</b>설정 › '기본 대주 목록 불러오기'로 은행·캐피탈·저축은행 등 180여 곳을 한 번에 넣거나,<br>기존 연락처 엑셀을 '엑셀에서 붙여넣기'로 가져오세요.</div>`}</div>`;
 };
-I.lq = el => { ui.lenderQ = el.value; const pos = el.selectionStart; render(); const n = $('#lq'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } };
+// 검색: 검색칸은 그대로 두고 아래 결과만 바꾼다. 화면 전체를 다시 그리면
+// 한글 조합 중인 글자가 끊겨 자모가 따로 찍힌다 (예: 'ㅎㅏㄴㅏ').
+I.lq = el => {
+  ui.lenderQ = el.value;
+  const box = $('#lres'); if (!box) return;
+  const tmp = document.createElement('div'); tmp.innerHTML = VIEWS.lenders();
+  box.innerHTML = $('#lres', tmp).innerHTML;
+};
 A.lty = el => { ui.lenderType = el.dataset.k; render(); };
 A['lender-new'] = () => lenderForm(null, L => { location.hash = '#/lender/' + encodeURIComponent(L.id); });
 A['lender-edit'] = el => lenderForm(Store.get(el.dataset.id));
