@@ -524,8 +524,8 @@ function renderDrawer() {
     ${t.stage === 'declined' ? `<div class="field"><label>불참 사유</label><input class="input" data-chg="tapfield" data-f="reason" data-id="${t.id}" value="${esc(t.reason || '')}"></div>` : ''}
     <div class="field"><label>내부 메모 (팀 안에서만)</label><textarea class="input" style="min-height:60px" data-chg="tapfield" data-f="internal" data-id="${t.id}">${esc(t.internal || '')}</textarea></div>
 
-    <h3 style="margin-top:6px">담당자</h3>
-    ${(L.contacts || []).map(c => `<div class="contact"><div><div class="n">${esc(c.name)} <span class="muted small">${esc([c.title, c.dept].filter(Boolean).join(' · '))}</span></div><div class="small">${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ''}${c.phone && c.email ? ' · ' : ''}${c.email ? esc(c.email) : ''}</div>${c.memo ? `<div class="small muted">${esc(c.memo)}</div>` : ''}</div>${c.email ? `<button class="btn sm" data-act="mail-one" data-lender="${L.id}" data-contact="${c.cid}" data-deal="${t.dealId}">메일</button>` : ''}</div>`).join('') || '<div class="muted small" style="margin-bottom:8px">등록된 담당자가 없습니다</div>'}
+    <h3 style="margin-top:6px">담당자 <span class="muted small">- ★ = 이 딜 검토 담당자</span></h3>
+    ${(L.contacts || []).map(c => { const on = (t.contactIds || []).includes(c.cid); return `<div class="contact"${on ? ' style="border-color:var(--gold);background:var(--goldbg)"' : ''}><div><div class="n">${esc(c.name)} <span class="muted small">${esc([c.title, c.dept].filter(Boolean).join(' · '))}</span></div><div class="small">${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ''}${c.phone && c.email ? ' · ' : ''}${c.email ? esc(c.email) : ''}</div>${c.memo ? `<div class="small muted">${esc(c.memo)}</div>` : ''}</div><div style="display:flex;gap:4px;align-items:flex-start"><button class="btn sm ${on ? 'gold' : 'ghost'}" data-act="tap-ctoggle" data-id="${t.id}" data-cid="${c.cid}" title="이 딜 검토 담당자로 지정/해제">${on ? '★ 검토 담당' : '☆ 지정'}</button>${c.email ? `<button class="btn sm" data-act="mail-one" data-lender="${L.id}" data-contact="${c.cid}" data-deal="${t.dealId}">메일</button>` : ''}</div></div>`; }).join('') || '<div class="muted small" style="margin-bottom:8px">등록된 담당자가 없습니다</div>'}
     <button class="btn sm" data-act="contact-add" data-id="${t.lenderId}">+ 담당자</button>
     ${L.prefs ? `<div class="notice small" style="margin-top:10px"><b>성향·조건</b> ${esc(L.prefs)}</div>` : ''}
     ${others.length ? `<div class="small muted" style="margin-top:10px">다른 딜: ${others.map(o => `${esc(dname(o.dealId))} <b>${STAGE[o.stage].t}</b>${o.reason ? ' (' + esc(o.reason) + ')' : ''}`).join(' · ')}</div>` : ''}
@@ -539,6 +539,7 @@ function renderDrawer() {
     <div style="margin-top:24px;border-top:1px solid var(--line2);padding-top:12px"><button class="btn sm danger" data-act="tap-remove" data-id="${t.id}">보드에서 빼기</button></div>
   </div>`;
 }
+A['tap-ctoggle'] = el => act(() => Store.update(el.dataset.id, v => { const s = new Set(v.contactIds || []); s.has(el.dataset.cid) ? s.delete(el.dataset.cid) : s.add(el.dataset.cid); v.contactIds = [...s]; return v; }));
 A.dtype = el => { $$('#d-type button').forEach(b => b.classList.toggle('on', b === el)); };
 A.dlog = async el => {
   const type = ($('#d-type button.on') || {}).dataset?.k || 'note', text = $('#d-text').value;
@@ -586,8 +587,8 @@ function exportXlsx(d, mode, withDec, withTodo) {
   const live = taps.filter(t => t.stage !== 'declined'), dec = withDec ? taps.filter(t => t.stage === 'declined') : [];
   const s = sums(taps), dt = new Date(), ymd = `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
   const ext = mode === 'ext';
-  const head = ext ? ['구분', '기관명', '검토금액(억원)', '진행 현황', '비고'] : ['구분', '기관명', '진행 단계', '검토금액(억원)', '승인금액(억원)', '심의 예정일', '비고', '내부 메모', '담당', '최근 접촉'];
-  const cols = ext ? [12, 22, 15, 16, 46] : [12, 22, 11, 14, 14, 13, 36, 36, 9, 11];
+  const head = ext ? ['구분', '기관명', '검토금액(억원)', '진행 현황', '비고'] : ['구분', '기관명', '대주 담당자', '진행 단계', '검토금액(억원)', '승인금액(억원)', '심의 예정일', '비고', '내부 메모', '우리 담당', '최근 접촉'];
+  const cols = ext ? [12, 22, 15, 16, 46] : [12, 22, 18, 11, 14, 14, 13, 34, 30, 9, 11];
   const N = head.length, rows = [], merges = [];
   const blank = s => Array.from({ length: N }, () => ({ v: '', s }));
   const prog = t => t.stage === 'approved' ? '승인 완료' : t.stage === 'committee' ? `심의 예정${t.meetDate ? ' (' + shortDate(t.meetDate) + ')' : ''}` : STAGE[t.stage].t;
@@ -598,7 +599,7 @@ function exportXlsx(d, mode, withDec, withTodo) {
   const byType = {};
   for (const t of live) { const ty = (Store.get(t.lenderId) || {}).type || '기타'; (byType[ty] = byType[ty] || []).push(t); }
   const types = Object.keys(byType).sort((a, b) => typeIdx(a) - typeIdx(b));
-  const amtCol = ext ? 2 : 3, aprCol = ext ? -1 : 4;
+  const amtCol = ext ? 2 : 4, aprCol = ext ? -1 : 5;
   let gA = 0, gP = 0;
   for (const ty of types) {
     const g = byType[ty].sort((a, b) => stageIdx(b.stage) - stageIdx(a.stage) || lname(a.lenderId).localeCompare(lname(b.lenderId), 'ko'));
@@ -609,7 +610,7 @@ function exportXlsx(d, mode, withDec, withTodo) {
       const name = lname(t.lenderId);
       rows.push(ext
         ? [{ v: i ? '' : ty, s: XS.sectText }, { v: name, s: XS.text }, { v: a || '', s: XS.num }, { v: prog(t), s: XS.center }, { v: t.note || '', s: XS.text }]
-        : [{ v: i ? '' : ty, s: XS.sectText }, { v: name, s: XS.text }, { v: STAGE[t.stage].t, s: XS.center }, { v: a || '', s: XS.num }, { v: p || '', s: XS.num }, { v: t.meetDate || '', s: XS.center }, { v: t.note || '', s: XS.text }, { v: t.internal || '', s: XS.text }, { v: mname(t.owner), s: XS.center }, { v: t.lastTouch || '', s: XS.center }]);
+        : [{ v: i ? '' : ty, s: XS.sectText }, { v: name, s: XS.text }, { v: contactChips(t, true), s: XS.text }, { v: STAGE[t.stage].t, s: XS.center }, { v: a || '', s: XS.num }, { v: p || '', s: XS.num }, { v: t.meetDate || '', s: XS.center }, { v: t.note || '', s: XS.text }, { v: t.internal || '', s: XS.text }, { v: mname(t.owner), s: XS.center }, { v: t.lastTouch || '', s: XS.center }]);
     });
     if (g.length > 1) merges.push(`A${start}:A${start + g.length - 1}`);
     const sub = blank(XS.subText); sub[1] = { v: '소계', s: XS.subText }; sub[amtCol] = { v: sa, s: XS.subNum }; if (aprCol > 0) sub[aprCol] = { v: sp, s: XS.subNum };
@@ -625,7 +626,7 @@ function exportXlsx(d, mode, withDec, withTodo) {
     dec.forEach((t, i) => {
       const L = Store.get(t.lenderId) || {};
       const r = blank(XS.text); r[0] = { v: i ? '' : '불참', s: XS.sectText }; r[1] = { v: `${L.name || ''}${L.type ? ` (${L.type})` : ''}`, s: XS.text };
-      r[amtCol] = { v: num(t.amount) || '', s: XS.num }; r[ext ? 3 : 2] = { v: '참여 불가', s: XS.center }; r[ext ? 4 : 6] = { v: t.reason || t.note || '', s: XS.text };
+      r[amtCol] = { v: num(t.amount) || '', s: XS.num }; r[ext ? 3 : 3] = { v: '참여 불가', s: XS.center }; r[ext ? 4 : 7] = { v: t.reason || t.note || '', s: XS.text }; if (!ext) r[2] = { v: contactChips(t, true), s: XS.text };
       rows.push(r);
     });
     if (dec.length > 1) merges.push(`A${start}:A${start + dec.length - 1}`);

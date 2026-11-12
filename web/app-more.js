@@ -81,7 +81,7 @@ function matchLender(map, name) {
   return hits.length === 1 ? hits[0][1] : null;
 }
 
-function contactForm(lid, c) {
+function contactForm(lid, c, after) {
   const isNew = !c; c = c || {};
   modal({
     title: (isNew ? '담당자 추가 · ' : '담당자 고치기 · ') + lname(lid),
@@ -96,7 +96,7 @@ function contactForm(lid, c) {
       el.querySelector('[data-ok]').onclick = async () => {
         const v = { cid: c.cid || uid(), name: val(el, 'c-name'), title: val(el, 'c-title'), dept: val(el, 'c-dept'), phone: val(el, 'c-phone'), email: val(el, 'c-email'), memo: val(el, 'c-memo') };
         if (!v.name && !v.email) return toast('이름이나 이메일을 적어 주세요', true);
-        await act(async () => { await Store.update(lid, L => { L.contacts = L.contacts || []; const i = L.contacts.findIndex(x => x.cid === v.cid); if (i >= 0) L.contacts[i] = v; else L.contacts.push(v); return L; }); close(); }, '저장했습니다');
+        await act(async () => { await Store.update(lid, L => { L.contacts = L.contacts || []; const i = L.contacts.findIndex(x => x.cid === v.cid); if (i >= 0) L.contacts[i] = v; else L.contacts.push(v); return L; }); close(); if (after) after(v); }, '저장했습니다');
       };
     }
   });
@@ -410,7 +410,8 @@ A['mr-list'] = el => { const l = Store.get(el.dataset.id); const n = addRecips(l
 A['mr-board'] = () => {
   const ks = $$('#mr-stages input').filter(c => c.checked).map(c => c.value);
   const taps = tapsOf(mail.dealId).filter(t => ks.includes(t.stage));
-  const items = taps.flatMap(t => lenderContacts(t.lenderId));
+  // 이 딜 검토 담당자를 정해 둔 대주는 그 사람들만, 아니면 이메일 있는 담당자 모두
+  const items = taps.flatMap(t => (t.contactIds || []).length ? t.contactIds.map(cid => ({ lenderId: t.lenderId, contactId: cid })) : lenderContacts(t.lenderId));
   const n = addRecips(items, '태핑 보드'); toast(n ? `${n}명 담았습니다` : '더할 사람이 없습니다'); render();
 };
 A['mr-pick'] = () => {

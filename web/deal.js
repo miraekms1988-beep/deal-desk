@@ -163,6 +163,62 @@ document.addEventListener('drop', e => {
 /* ======================================================================
  * 딜 화면
  * ==================================================================== */
+/* ---------- 이 딜의 대주 측 검토 담당자 ----------
+ * tap.contactIds 에 지정한 사람. 지정이 없으면 그 대주 첫 담당자를 흐리게 (짐작) 보여 준다. */
+function tapContacts(t) {
+  const cs = ((Store.get(t.lenderId) || {}).contacts) || [], ids = t.contactIds || [];
+  const sel = cs.filter(c => ids.includes(c.cid));
+  return { all: cs, sel, shown: sel.length ? sel : cs.slice(0, 1), guess: !sel.length && cs.length > 0, more: sel.length ? 0 : Math.max(0, cs.length - 1) };
+}
+function contactChips(t, plain) {
+  const x = tapContacts(t);
+  if (!x.all.length) return plain ? '' : `<button class="btn sm ghost" data-act="tap-contacts" data-id="${t.id}">+ 담당자</button>`;
+  if (plain) return x.shown.map(c => [c.name, c.title].filter(Boolean).join(' ')).join(', ') + (x.more ? ` 외 ${x.more}` : '');
+  return x.shown.map(c => `<span class="pchip${x.guess ? ' guess' : ''}" data-act="contact-pop" data-tap="${t.id}" data-cid="${c.cid}" title="${x.guess ? '검토 담당자 미지정 - 대주 첫 담당자' : '이 딜 검토 담당자'}">${esc(c.name || c.email || '(이름 없음)')}${c.title ? ` <em>${esc(c.title)}</em>` : ''}</span>`).join('') + (x.more ? `<span class="pchip more" data-act="tap-contacts" data-id="${t.id}">+${x.more}</span>` : '');
+}
+// 담당자 상세
+A['contact-pop'] = (el, e) => {
+  if (e) e.stopPropagation();
+  const t = Store.get(el.dataset.tap); if (!t) return;
+  const L = Store.get(t.lenderId) || {}, c = (L.contacts || []).find(x => x.cid === el.dataset.cid); if (!c) return;
+  const assigned = (t.contactIds || []).includes(c.cid);
+  modal({
+    title: `${c.name || ''} ${c.title || ''}`.trim() || '담당자',
+    body: `<dl class="kv2"><dt>기관</dt><dd>${esc(L.name || '')}</dd>${c.dept ? `<dt>부서</dt><dd>${esc(c.dept)}</dd>` : ''}
+      <dt>휴대폰</dt><dd>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">-</span>'}</dd>
+      <dt>이메일</dt><dd>${c.email ? esc(c.email) : '<span class="muted">-</span>'}</dd>${c.memo ? `<dt>메모</dt><dd>${esc(c.memo)}</dd>` : ''}
+      <dt>이 딜</dt><dd>${assigned ? '<span class="chip gold">검토 담당자</span>' : '<span class="muted">검토 담당자로 지정되지 않음 (대주 첫 담당자라 표시)</span>'}</dd></dl>
+      ${(L.contacts || []).length > 1 ? `<div class="small muted" style="margin-top:10px">${esc(L.name)} 담당자 ${(L.contacts || []).length}명 · '담당자 바꾸기'에서 이 딜 담당을 고르세요</div>` : ''}`,
+    foot: `<button class="btn" data-edit style="margin-right:auto">정보 고치기</button><button class="btn" data-pick>담당자 바꾸기</button>${c.email ? '<button class="btn dark" data-mail>메일 쓰기</button>' : ''}`,
+    onMount: (m, close) => {
+      m.querySelector('[data-edit]').onclick = () => { close(); contactForm(L.id, c); };
+      m.querySelector('[data-pick]').onclick = () => { close(); A['tap-contacts']({ dataset: { id: t.id } }); };
+      const ml = m.querySelector('[data-mail]'); if (ml) ml.onclick = () => { close(); closeDrawer(); goMail({ dealId: t.dealId, items: [{ lenderId: L.id, contactId: c.cid }], src: '대주' }); };
+    }
+  });
+};
+// 이 딜 검토 담당자 고르기 (여러 명 가능) + 새 담당자
+A['tap-contacts'] = (el, e) => {
+  if (e) e.stopPropagation();
+  const t = Store.get(el.dataset.id); if (!t) return;
+  const L = Store.get(t.lenderId) || {}, ids = new Set(t.contactIds || []);
+  modal({
+    title: `검토 담당자 · ${L.name || ''}`,
+    body: `<p class="small muted" style="margin-top:0">${esc(dname(t.dealId))} 건을 이 대주에서 검토하는 사람을 고르세요. 여러 명 가능합니다. 태핑 보드에서 메일을 담을 때 이 사람들에게만 갑니다.</p>
+      <div class="pick-list">${(L.contacts || []).map(c => `<label class="pick"><input type="checkbox" value="${c.cid}" ${ids.has(c.cid) ? 'checked' : ''}><div class="grow"><b>${esc(c.name || '(이름 없음)')}</b> <span class="muted small">${esc([c.title, c.dept].filter(Boolean).join(' · '))}</span></div><span class="small muted">${esc(c.phone || '')}${c.phone && c.email ? ' · ' : ''}${esc(c.email || '')}</span></label>`).join('') || '<div class="empty">등록된 담당자가 없습니다</div>'}</div>
+      <button class="btn sm" data-new style="margin-top:10px">+ 새 담당자 등록</button>`,
+    foot: `<button class="btn" data-no>취소</button><button class="btn dark" data-ok>저장</button>`,
+    onMount: (m, close) => {
+      m.querySelector('[data-no]').onclick = close;
+      m.querySelector('[data-new]').onclick = () => { close(); contactForm(L.id, null, nc => act(() => Store.update(t.id, v => { v.contactIds = [...(v.contactIds || []), nc.cid]; return v; }), `${nc.name || '새 담당자'}님을 이 딜 검토 담당자로 지정했습니다`)); };
+      m.querySelector('[data-ok]').onclick = () => {
+        const sel = $$('input[type=checkbox]', m).filter(x => x.checked).map(x => x.value);
+        act(async () => { await Store.update(t.id, v => { v.contactIds = sel; return v; }); close(); }, '저장했습니다');
+      };
+    }
+  });
+};
+
 function stageSelect(t, cls = 'stage') {
   return `<select class="${cls}" data-chg="stage" data-id="${t.id}" style="background-color:${STAGE[t.stage].c}">${STAGES.map(s => `<option value="${s.k}" ${s.k === t.stage ? 'selected' : ''}>${s.t}</option>`).join('')}</select>`;
 }
@@ -259,7 +315,8 @@ function dealBoard(d, taps) {
       const a = grp.filter(t => t.stage !== 'declined').reduce((s, t) => s + num(t.amount), 0), p = grp.filter(t => t.stage === 'approved').reduce((s, t) => s + (num(t.approved) || num(t.amount)), 0);
       html += `<div class="mgrp"><span>${esc(cur)} · ${grp.length}곳</span><span>검토 ${fmt(a) || 0}${p ? ' · 승인 ' + fmt(p) : ''}</span></div>` + grp.map(t => {
         const sub = [num(t.amount) ? `<span class="k">검토</span> ${fmt(num(t.amount))}억` : '', t.stage === 'approved' ? `<span class="k">승인</span> ${fmt(num(t.approved) || num(t.amount))}억` : '', t.meetDate ? `<span class="k">심의</span> ${shortDate(t.meetDate)}` : '', t.tranche ? esc(t.tranche) : '', esc(t.stage === 'declined' ? t.reason || '' : t.note || '')].filter(Boolean).join(' · ');
-        return `<div class="mrow" data-act="tap" data-id="${t.id}"${t.stage === 'declined' ? ' style="opacity:.6"' : ''}><div class="mtop"><b>${esc(lname(t.lenderId))}</b>${needsFollow(t) ? '<span class="chip warn">팔로업</span>' : ''}<span class="r">${stageSelect(t)}</span></div>${sub ? `<div class="msub">${sub}</div>` : ''}</div>`;
+        const pc = contactChips(t, true);
+        return `<div class="mrow" data-act="tap" data-id="${t.id}"${t.stage === 'declined' ? ' style="opacity:.6"' : ''}><div class="mtop"><b>${esc(lname(t.lenderId))}</b>${pc ? `<span class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(pc)}</span>` : ''}${needsFollow(t) ? '<span class="chip warn">팔로업</span>' : ''}<span class="r">${stageSelect(t)}</span></div>${sub ? `<div class="msub">${sub}</div>` : ''}</div>`;
       }).join('');
       tot.a += a; tot.p += p; grp = [];
     };
@@ -270,9 +327,9 @@ function dealBoard(d, taps) {
   else if (ui.boardView === 'kanban') {
     board = `<div class="kanban">${STAGES.map(st => { const col = sorted.filter(t => t.stage === st.k); return `<div class="kcol"><h4><span style="color:${st.c}">● ${st.t}</span><span class="muted">${col.length}</span></h4>${col.map(t => `<div class="kcard" data-act="tap" data-id="${t.id}"><b>${esc(lname(t.lenderId))}</b>${needsFollow(t) ? ' <span class="chip warn">팔로업</span>' : ''}<div class="a">${esc((Store.get(t.lenderId) || {}).type || '')}${num(t.amount) ? ' · ' + fmt(num(t.amount)) + '억' : ''}${t.meetDate ? ' · 심의 ' + shortDate(t.meetDate) : ''}</div></div>`).join('')}</div>`; }).join('')}</div>`;
   } else {
-    const cols = multiTr ? 9 : 8;
+    const cols = multiTr ? 10 : 9;
     let rows = '', curType = null, sub = null;
-    const flush = () => { if (sub && curType !== null) rows += `<tr class="sub"><td>소계</td><td></td>${multiTr ? '<td></td>' : ''}<td class="num">${fmt(sub.a)}</td><td class="num">${fmt(sub.p)}</td><td colspan="4"></td></tr>`; };
+    const flush = () => { if (sub && curType !== null) rows += `<tr class="sub"><td>소계</td><td></td><td></td>${multiTr ? '<td></td>' : ''}<td class="num">${fmt(sub.a)}</td><td class="num">${fmt(sub.p)}</td><td colspan="4"></td></tr>`; };
     const tot = { a: 0, p: 0 };
     for (const t of sorted) {
       const L = Store.get(t.lenderId) || {}, ty = L.type || '기타';
@@ -281,6 +338,7 @@ function dealBoard(d, taps) {
       if (t.stage === 'approved') { const p = num(t.approved) || num(t.amount); sub.p += p; tot.p += p; }
       const dim = t.stage === 'declined' ? ' style="opacity:.55"' : '';
       rows += `<tr class="row"${dim}><td><span class="name" data-act="tap" data-id="${t.id}">${esc(L.name || '(삭제된 대주)')}</span>${needsFollow(t) ? ' <span class="chip warn">팔로업</span>' : ''}</td>
+        <td class="pc-td">${contactChips(t)}</td>
         <td>${stageSelect(t)}</td>
         ${multiTr ? `<td><select class="cell" style="width:auto" data-chg="tapfield" data-f="tranche" data-id="${t.id}"><option value="">-</option>${tr.map(x => `<option ${t.tranche === x.name ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></td>` : ''}
         <td class="num"><input class="cell" inputmode="decimal" data-chg="tapfield" data-f="amount" data-id="${t.id}" value="${esc(t.amount === '' || t.amount == null ? '' : t.amount)}" placeholder="-"></td>
@@ -293,8 +351,8 @@ function dealBoard(d, taps) {
         <td>${avatar(t.owner, 1)}</td></tr>`;
     }
     flush();
-    rows += `<tr class="tot"><td>합계</td><td>${shown.length}곳</td>${multiTr ? '<td></td>' : ''}<td class="num">${fmt(tot.a)}</td><td class="num">${fmt(tot.p)}</td><td colspan="4"></td></tr>`;
-    board = `<div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>기관</th><th>단계</th>${multiTr ? '<th>트랜치</th>' : ''}<th class="num">검토(억)</th><th class="num">승인(억)</th><th>심의 예정일</th><th>비고 / 불참 사유</th><th>최근</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    rows += `<tr class="tot"><td>합계</td><td></td><td>${shown.length}곳</td>${multiTr ? '<td></td>' : ''}<td class="num">${fmt(tot.a)}</td><td class="num">${fmt(tot.p)}</td><td colspan="4"></td></tr>`;
+    board = `<div class="card" style="padding:0"><div class="tbl-wrap"><table class="t"><thead><tr><th>기관</th><th>검토 담당자</th><th>단계</th>${multiTr ? '<th>트랜치</th>' : ''}<th class="num">검토(억)</th><th class="num">승인(억)</th><th>심의 예정일</th><th>비고 / 불참 사유</th><th>최근</th><th>우리 담당</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
   return `${taps.length ? `<div class="card" style="margin-bottom:12px"><div class="quick">
     <select class="input" id="q-tap"><option value="">대주 선택</option>${taps.slice().sort((a, b) => lname(a.lenderId).localeCompare(lname(b.lenderId), 'ko')).map(t => `<option value="${t.id}">${esc(lname(t.lenderId))}</option>`).join('')}</select>

@@ -111,6 +111,13 @@ input.cell { width: 80px; border: 1px solid transparent; border-radius: 6px; pad
 input.cell:hover { border-color: var(--line); }
 input.cell:focus { border-color: var(--gold); background: #fff; outline: none; }
 input.cell.date { width: 118px; text-align: left; }
+/* 대주 측 검토 담당자 */
+table.t td.pc-td { white-space: normal; min-width: 120px; max-width: 200px; }
+.pchip { display: inline-flex; align-items: baseline; gap: 3px; padding: 2px 8px; margin: 1px 4px 1px 0; border-radius: 7px; background: var(--line2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.pchip em { font-style: normal; font-weight: 500; color: var(--ink3); font-size: 11px; }
+.pchip:hover { background: var(--goldbg); color: var(--gold2); }
+.pchip.guess { background: transparent; border: 1px dashed var(--line); color: var(--ink3); font-weight: 500; }
+.pchip.more { background: transparent; color: var(--ink3); }
 /* 비고·불참 사유: 글이 길면 줄을 바꿔 다 보이게 */
 table.t td.note-td { white-space: normal; min-width: 240px; width: 34%; }
 .note-cell { padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; line-height: 1.45; word-break: break-word; min-height: 22px; cursor: text; }
