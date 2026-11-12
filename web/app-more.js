@@ -763,6 +763,22 @@ A['mock-import'] = () => {
   });
 };
 
+/* ---------- 새 판 확인 ----------
+ * GitHub Pages 는 파일을 10분 캐시한다. 열 때·창으로 돌아올 때 version.txt(캐시 안 함)를 보고
+ * 지금 화면보다 새 판이면 ?v=새판 주소로 다시 연다 → 새 index.html·새 js 를 받는다. */
+async function checkVersion() {
+  if (!/^https?:$/.test(location.protocol) || /localhost|127\.0\.0\.1/.test(location.hostname) || window.DD_VERSION === 'dev') return;
+  try {
+    const v = (await (await fetch('version.txt?cb=' + Date.now(), { cache: 'no-store' })).text()).trim();
+    if (!v || v === window.DD_VERSION || typing()) return;
+    if (sessionStorage.getItem('dd-reloaded') === v) return;   // 같은 판으로 두 번 돌지 않게
+    sessionStorage.setItem('dd-reloaded', v);
+    location.replace(location.pathname + '?v=' + v + location.hash);
+  } catch (e) { }
+}
+checkVersion();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+
 /* ---------- 시작 ---------- */
 showGate = (orig => async () => {
   const s = loadSession();
