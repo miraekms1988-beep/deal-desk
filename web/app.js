@@ -2,8 +2,10 @@
  * 화면 2(대주·리스트·메일·활동·설정)는 app-more.js */
 'use strict';
 const CFG = window.DD_CONFIG || {};
-const MOCK = !CFG.API_URL;
-Store.api = MOCK ? new MockApi() : new RemoteApi(CFG.API_URL);
+// ?mock=1 = 시험 모드 강제, ?mock=2 = 시험용 '두 번째 저장소'(시험 모드 → 팀 옮기기 시험). 둘 다 이 브라우저 안에서만.
+const MOCK_P = (location.search.match(/[?&]mock=(\d)/) || [])[1];
+const MOCK = !CFG.API_URL || MOCK_P === '1';
+Store.api = MOCK ? new MockApi() : MOCK_P === '2' ? new MockApi('dealdesk-mock-store-2') : new RemoteApi(CFG.API_URL);
 const app = $('#app');
 const ui = { boardView: 'table', boardFilter: '', lenderType: '', lenderQ: '', feedDeal: '', feedWho: '', feedType: '', dealsFilter: 'active' };
 const A = {}, C = {}, I = {};   // 누르기 · 바꾸기 · 입력 처리기 (data-act / data-chg / data-inp)
@@ -20,7 +22,7 @@ async function act(fn, okMsg) {
 }
 
 /* ---------- 로그인 유지 ---------- */
-const SESS = 'dealdesk-session';
+const SESS = 'dealdesk-session' + (MOCK ? '-mock' : MOCK_P === '2' ? '-mock2' : '');
 function saveSession(s, remember) { try { sessionStorage.setItem(SESS, JSON.stringify(s)); if (remember) localStorage.setItem(SESS, JSON.stringify(s)); } catch (e) { } }
 function loadSession() { try { return JSON.parse(sessionStorage.getItem(SESS) || localStorage.getItem(SESS) || 'null'); } catch (e) { return null; } }
 function clearSession() { try { sessionStorage.removeItem(SESS); localStorage.removeItem(SESS); } catch (e) { } }
@@ -108,17 +110,18 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const el = e.target.closest('[data-chg]'); if (el && C[el.dataset.chg]) C[el.dataset.chg](el, e); });
 document.addEventListener('input', e => { const el = e.target.closest('[data-inp]'); if (el && I[el.dataset.inp]) I[el.dataset.inp](el, e); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { const s = $$('.scrim').pop(); if (s) s.remove(); else if (drawerId) closeDrawer(); }
+  if (e.key === 'Escape') { const all = $$('.scrim'), s = all.pop(); if (s && !s.dataset.lock) s.remove(); else if (!s && drawerId) closeDrawer(); }
   if (e.key === 'Enter' && e.target.matches('input.cell')) e.target.blur();
 });
 A.go = el => { location.hash = el.dataset.to; };
 
 /* ---------- 창 ---------- */
-function modal({ title, body, foot = '', wide = false, onMount }) {
+function modal({ title, body, foot = '', wide = false, onMount, locked = false }) {
   const el = document.createElement('div'); el.className = 'scrim';
-  el.innerHTML = `<div class="modal${wide ? ' wide' : ''}" role="dialog"><div class="modal-h"><h2>${esc(title)}</h2><button class="x-btn" data-x aria-label="닫기">×</button></div><div class="modal-b">${body}</div>${foot ? `<div class="modal-f">${foot}</div>` : ''}</div>`;
+  if (locked) el.dataset.lock = '1';
+  el.innerHTML = `<div class="modal${wide ? ' wide' : ''}" role="dialog"><div class="modal-h"><h2>${esc(title)}</h2><button class="x-btn${locked ? ' hide' : ''}" data-x aria-label="닫기">×</button></div><div class="modal-b">${body}</div>${foot ? `<div class="modal-f">${foot}</div>` : ''}</div>`;
   const close = () => el.remove();
-  el.addEventListener('mousedown', e => { if (e.target === el) close(); });
+  if (!locked) el.addEventListener('mousedown', e => { if (e.target === el) close(); });
   el.querySelector('[data-x]').onclick = close;
   document.body.appendChild(el);
   if (onMount) onMount(el, close);
@@ -215,10 +218,12 @@ function gateSetup() {
       const j = await Store.api.call({ op: 'init', tok: await tokOf(kB64), kid, blob });
       if (!j.ok) return err(j.error === 'already initialized' ? '이미 팀이 있습니다. 새로고침 후 로그인해 주세요.' : (j.error || '실패'));
       const s = { k: kB64, mid, kid, email };
+      saveSession(s, false);   // 팀은 이미 생겼다 - 아래가 실패해도 다시 들어오면 ensureMe 가 마저 채운다
       await unlock(s);
-      await Store.create('member', { id: mid, name: $('#s-name').value.trim(), title: $('#s-title').value.trim(), dept: CFG.TEAM || '', phone: $('#s-phone').value.trim(), tel: '', email, role: 'admin', active: true, mailMode: 'outlook-pc', sig: DEFAULT_SIG });
-      await Store.createMany('tpl', DEFAULT_TPLS);
-      saveSession(s, false);
+      try {
+        await Store.create('member', { id: mid, name: $('#s-name').value.trim(), title: $('#s-title').value.trim(), dept: CFG.TEAM || '', phone: $('#s-phone').value.trim(), tel: '', email, role: 'admin', active: true, mailMode: 'outlook-pc', sig: DEFAULT_SIG });
+        await Store.createMany('tpl', DEFAULT_TPLS);
+      } catch (x) { console.warn('내 정보 저장 실패 - 로그인 뒤 다시 묻는다', x); }
       startApp();
       toast('팀을 만들었습니다. 설정에서 팀원을 등록해 주세요.');
     } catch (x) { err(x.message || String(x)); }
@@ -241,6 +246,33 @@ function startApp() {
     window.addEventListener('focus', () => Store.sync().catch(() => { }));
   }
   render();
+  ensureMe();
+}
+
+/* 내 팀원 기록이 없으면(팀 만들기 중 저장 실패 등) 다시 받아 채운다.
+ * 관리할 수 있는 사람이 아무도 없으면 나를 관리자로 - 팀을 만든 사람이 이 경우다. */
+let ensuring = false;
+function ensureMe() {
+  if (ensuring || Store.get(Store.mid)) return;
+  ensuring = true;
+  const firstAdmin = !members().some(m => canManage(m) && m.active !== false);
+  modal({
+    title: '내 정보',
+    body: `<p class="small muted" style="margin-top:0">${firstAdmin ? '팀을 만들 때 내 정보가 저장되지 않았습니다. 다시 적어 주시면 <b>관리자</b>로 등록합니다.' : '내 정보가 없습니다. 적어 주세요.'}</p>
+      <div class="row2"><div class="field"><label>이름</label><input class="input" id="me-name"></div><div class="field"><label>직함</label><input class="input" id="me-title" placeholder="수석매니저"></div></div>
+      <div class="row2"><div class="field"><label>이메일</label><input class="input" value="${esc(Store.email || '')}" disabled></div><div class="field"><label>휴대폰</label><input class="input" id="me-phone"></div></div>`,
+    foot: `<button class="btn dark" data-ok>저장</button>`, locked: true,
+    onMount: (el, close) => {
+      el.querySelector('[data-ok]').onclick = async () => {
+        const name = val(el, 'me-name'); if (!name) return toast('이름을 적어 주세요', true);
+        await act(async () => {
+          await Store.create('member', { id: Store.mid, name, title: val(el, 'me-title'), dept: CFG.TEAM || '', phone: val(el, 'me-phone'), tel: '', email: Store.email || '', role: firstAdmin ? 'admin' : 'member', active: true, mailMode: 'outlook-pc', sig: DEFAULT_SIG });
+          if (firstAdmin && !Store.all('tpl').length) await Store.createMany('tpl', DEFAULT_TPLS);
+          ensuring = false; close(); render();
+        }, firstAdmin ? '관리자로 등록했습니다' : '저장했습니다');
+      };
+    }
+  });
 }
 A.logout = () => { clearSession(); location.hash = ''; location.reload(); };
 

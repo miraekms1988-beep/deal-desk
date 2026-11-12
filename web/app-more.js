@@ -570,6 +570,7 @@ VIEWS.settings = () => {
       <div class="card"><h2>대주 기본 목록</h2><div class="small muted" style="margin-bottom:10px">은행·증권·보험·캐피탈·저축은행·상호금융·운용사·공제회 ${Object.values(SEED_LENDERS).flat().length}곳 이름과 유형만 넣습니다. 이미 있는 이름은 건너뜁니다.</div><button class="btn" data-act="seed">기본 대주 목록 불러오기</button></div>
     </div>
   </div>
+  ${!MOCK && mockRaw() ? `<div class="card" style="margin-top:16px;border:2px solid var(--gold)"><h2>시험 모드 데이터 가져오기</h2><div class="small muted" style="margin-bottom:10px">이 브라우저에 시험 모드로 넣어 둔 기록(딜 ${mockRaw().deals}건 등)이 남아 있습니다. 시험 때 쓴 이메일·비밀번호로 열어 지금 팀으로 옮깁니다.</div><button class="btn gold" data-act="mock-import">가져오기…</button></div>` : ''}
   ${admin ? `<div class="card" style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="margin:0">팀원 관리</h2><button class="btn dark" data-act="member-add">+ 팀원 등록</button></div>
     <div class="tbl-wrap"><table class="t"><thead><tr><th>이름</th><th>직함</th><th>이메일</th><th>권한</th><th>상태</th><th></th></tr></thead><tbody>${members().map(x => `<tr class="row"><td>${avatar(x.id, 1)} <b>${esc(x.name)}</b></td><td>${esc(x.title || '')}</td><td>${esc(x.email)}</td><td>${x.id === Store.mid || x.active === false ? roleName(x.role) : `<select class="cell" style="width:auto;text-align:left" data-chg="member-role" data-id="${x.id}">${ROLES.map(([k, t]) => `<option value="${k}" ${x.role === k ? 'selected' : ''}>${t}</option>`).join('')}</select>`}</td><td>${x.active === false ? '<span class="chip warn">중지</span>' : '<span class="chip gold">사용</span>'}</td><td>${x.id !== Store.mid ? `${x.active === false ? '' : `<button class="btn sm" data-act="member-reset" data-id="${x.id}">비밀번호 재발급</button> <button class="btn sm danger" data-act="member-stop" data-id="${x.id}">사용 중지</button>`}` : ''}</td></tr>`).join('')}</tbody></table></div>
     <div class="small muted" style="margin-top:10px">사용 중지하면 그 사람 비밀번호 꾸러미를 지워 다시 로그인할 수 없습니다.</div></div>
@@ -633,6 +634,82 @@ A.backup = () => {
   if (!confirm('복호화된 전체 내용(대주 연락처 포함)을 파일로 내려받습니다. 안전한 곳에 보관해 주세요.')) return;
   const out = {}; for (const r of Store.recs.values()) (out[r.kind] = out[r.kind] || []).push(r.v);
   download(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), `dealdesk-backup-${today()}.json`);
+};
+
+/* ---------- 시험 모드 → 실제 팀으로 옮기기 ----------
+ * 시험 모드 기록은 그 브라우저(주소별) localStorage 에 시험 팀 키로 잠겨 있다.
+ * 시험 때 이메일·비밀번호로 그 키를 열어 풀고, 지금 팀 키로 다시 잠가 올린다. */
+function mockRaw() {
+  try {
+    if (localStorage.getItem('dealdesk-mock-imported')) return null;
+    const db = JSON.parse(localStorage.getItem('dealdesk-mock-store') || 'null');
+    if (!db || !db.data) return null;
+    const live = Object.values(db.data).filter(r => !r.del);
+    if (!live.length) return null;
+    return { db, deals: live.filter(r => r.kind === 'deal').length };
+  } catch (e) { return null; }
+}
+A['mock-import'] = () => {
+  const raw = mockRaw(); if (!raw) return;
+  modal({
+    title: '시험 모드 데이터 가져오기',
+    body: `<div class="row2"><div class="field"><label>시험 때 이메일</label><input class="input" id="mk-email" type="email"></div><div class="field"><label>시험 때 비밀번호</label><input class="input" id="mk-pass" type="password"></div></div><button class="btn" id="mk-open">열기</button><div id="mk-box" style="margin-top:14px"></div>`,
+    foot: `<button class="btn" data-no>취소</button><button class="btn dark" data-ok disabled>선택한 것 옮기기</button>`,
+    onMount: (el, close) => {
+      let recs = null;
+      el.querySelector('[data-no]').onclick = close;
+      $('#mk-open', el).onclick = async () => {
+        try {
+          const blob = raw.db.keys[await kidOf(val(el, 'mk-email').toLowerCase())];
+          if (!blob) return toast('시험 모드에 그 이메일 계정이 없습니다', true);
+          let p; try { p = await unwrapTeamKey($('#mk-pass', el).value, blob); } catch (e) { return toast('비밀번호가 맞지 않습니다', true); }
+          const key = await gcmKey(b64d(p.k));
+          recs = {};
+          for (const [id, r] of Object.entries(raw.db.data)) { if (r.del) continue; try { (recs[r.kind] = recs[r.kind] || []).push({ ...(await open_(key, r.ct)), id }); } catch (e) { } }
+          const ds = recs.deal || [], ls = recs.list || [], have = new Set(deals().map(d => normName(d.name)));
+          $('#mk-box', el).innerHTML = `<h3>딜</h3>${ds.map(d => `<label class="pick"><input type="checkbox" class="mk-d" value="${d.id}" ${have.has(normName(d.name)) ? '' : 'checked'}><div class="grow"><b>${esc(d.name)}</b> <span class="small muted">${esc(d.kind || '')} · 대주 ${(recs.tap || []).filter(t => t.dealId === d.id).length}곳${have.has(normName(d.name)) ? ' · 같은 이름 딜이 이미 있음' : ''}</span></div></label>`).join('') || '<div class="small muted">없음</div>'}
+            ${ls.length ? `<h3 style="margin-top:12px">대주 리스트</h3>${ls.map(l => `<label class="pick"><input type="checkbox" class="mk-l" value="${l.id}" checked><div class="grow"><b>${esc(l.name)}</b> <span class="small muted">${(l.items || []).length}명</span></div></label>`).join('')}` : ''}
+            <div class="small muted" style="margin-top:10px">대주·담당자는 같은 이름 기관에 합쳐 넣고, 활동 기록도 함께 옮깁니다. 작성자는 모두 나로 바뀝니다.</div>`;
+          el.querySelector('[data-ok]').disabled = false;
+        } catch (e) { toast(e.message || String(e), true); }
+      };
+      el.querySelector('[data-ok]').onclick = async () => {
+        const dSel = new Set($$('.mk-d', el).filter(c => c.checked).map(c => c.value));
+        const lSel = new Set($$('.mk-l', el).filter(c => c.checked).map(c => c.value));
+        await act(async () => {
+          const me_ = Store.mid, ops = [];
+          const taps = (recs.tap || []).filter(t => dSel.has(t.dealId));
+          const lists = (recs.list || []).filter(l => lSel.has(l.id));
+          // 대주: 쓰이는 것 + 담당자가 있는 것만, 같은 이름은 합친다
+          const used = new Set([...taps.map(t => t.lenderId), ...lists.flatMap(l => (l.items || []).map(i => i.lenderId))]);
+          const byName = new Map(lenders().map(L => [normName(L.name), JSON.parse(JSON.stringify(L))]));
+          const lmap = {};
+          for (const L of recs.lender || []) {
+            if (!used.has(L.id) && !(L.contacts || []).length) continue;
+            const ex = matchLender(byName, L.name);
+            if (ex) {
+              lmap[L.id] = ex.id;
+              let changed = false;
+              for (const c of L.contacts || []) if (!(ex.contacts || []).some(x => (c.email && x.email === c.email) || (c.name && x.name === c.name))) { (ex.contacts = ex.contacts || []).push(c); changed = true; }
+              if (!ex.prefs && L.prefs) { ex.prefs = L.prefs; changed = true; }
+              if (changed) ops.push({ kind: 'lender', v: ex, base: (Store.meta(ex.id) || {}).at });
+            } else { lmap[L.id] = L.id; byName.set(normName(L.name), L); ops.push({ kind: 'lender', v: L }); }
+          }
+          const lid = x => lmap[x] || x;
+          for (const d of (recs.deal || []).filter(d => dSel.has(d.id))) ops.push({ kind: 'deal', v: { ...d, owners: [me_], createdBy: me_ } });
+          for (const t of taps) ops.push({ kind: 'tap', v: { ...t, lenderId: lid(t.lenderId), owner: me_ } });
+          for (const l of lists) ops.push({ kind: 'list', v: { ...l, items: (l.items || []).map(i => ({ ...i, lenderId: lid(i.lenderId) })) } });
+          const tapIds = new Set(taps.map(t => t.id));
+          for (const g of (recs.log || []).filter(g => (g.dealId && dSel.has(g.dealId)) || (g.tapId && tapIds.has(g.tapId))))
+            ops.push({ kind: 'log', v: { ...g, by: me_, lenderId: g.lenderId ? lid(g.lenderId) : '', lenderIds: (g.lenderIds || []).map(lid) } });
+          for (const t of recs.tpl || []) if (!Store.all('tpl').some(x => x.name === t.name)) ops.push({ kind: 'tpl', v: t });
+          await Store.putMany(ops);
+          try { localStorage.setItem('dealdesk-mock-imported', new Date().toISOString()); } catch (e) { }
+          close(); render();
+        }, '시험 모드 데이터를 옮겼습니다');
+      };
+    }
+  });
 };
 
 /* ---------- 시작 ---------- */

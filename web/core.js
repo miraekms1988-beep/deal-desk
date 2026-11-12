@@ -57,10 +57,11 @@ async function seal(key, obj) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(obj))));
   const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12);
-  return b64e(all);
+  // 앞에 '~' 를 붙인다: base64 가 '+' 로 시작하면 구글 시트가 수식으로 읽어 값이 깨진다 (#ERROR!)
+  return '~' + b64e(all);
 }
 async function open_(key, b64) {
-  const all = b64d(b64);
+  const all = b64d(String(b64).replace(/^~/, ''));
   return JSON.parse(dec.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12))));
 }
 const kidOf = email => sha256hex('dealdesk-kid:' + String(email).trim().toLowerCase());
@@ -90,7 +91,7 @@ class RemoteApi {
 }
 // 저장소 주소가 없을 때: 이 브라우저 안에서만 도는 시험용 저장소 (Apps Script 와 같은 약속)
 class MockApi {
-  constructor() { this.key = 'dealdesk-mock-store'; }
+  constructor(key) { this.key = key || 'dealdesk-mock-store'; }
   load() { try { return JSON.parse(localStorage.getItem(this.key)) || { tok: null, keys: {}, data: {} }; } catch (e) { return { tok: null, keys: {}, data: {} }; } }
   saveDb(db) { localStorage.setItem(this.key, JSON.stringify(db)); }
   async call(d) {
