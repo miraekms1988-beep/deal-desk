@@ -107,7 +107,7 @@ function parseCard(text) {
 
 /* ---------- 화면: 명함 고르기 → 인식 → 칸 채우기 ---------- */
 // 파일 고르기 (휴대폰은 카메라 바로)
-function pickImage(cb) { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.onchange = () => { if (i.files[0]) cb(i.files[0]); }; i.click(); }
+function pickImage(cb) { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = () => { if (i.files[0]) cb(i.files[0]); }; i.click(); }
 async function readCard(file, statusEl) {
   const say = s => { if (statusEl && s) statusEl.textContent = s; };
   say('이미지 준비 중…');
@@ -146,7 +146,7 @@ function cardFillUi(el, fill) {
   // 캡처를 Ctrl+V 로 붙여넣기
   el.addEventListener('paste', e => { const it = [...(e.clipboardData || {}).items || []].find(x => x.type.startsWith('image/')); if (it) { e.preventDefault(); run(it.getAsFile()); } });
 }
-const cardDropHtml = () => `<div class="card-drop"><button class="btn sm dark card-pick" type="button">📷 명함·캡처로 채우기</button><span class="small muted">사진을 고르거나 끌어다 놓기 · 캡처는 Ctrl+V · 이미지는 이 기기 안에서만 읽습니다</span><div class="small card-st"></div></div>`;
+const cardDropHtml = () => `<div class="card-drop"><button class="btn sm dark card-pick" type="button">📷 명함·캡처로 채우기</button><span class="small muted">${isPhone() ? '명함을 찍거나 앨범·캡처에서 고르세요 · 이미지는 이 기기 안에서만 읽습니다' : '사진을 고르거나 끌어다 놓기 · 캡처는 Ctrl+V · 이미지는 이 기기 안에서만 읽습니다'}</span><div class="small card-st"></div></div>`;
 // 칸에 값 넣기 (비어 있는 칸만, 채운 칸은 금빛)
 function fillInputs(el, map) {
   let n = 0;

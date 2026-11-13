@@ -53,6 +53,8 @@ function detectTask(m) {
     .replace(/(팀장|수석|책임|선임|매니저|차장|과장|대리)님[,\s]*/g, '')
     .replace(/\s*(까지)?\s*(좀\s*)?(해\s?주세요|해\s?주시면.*|해\s?줘|부탁\s?(드립니다|드려요|드릴게요|해요|합니다)?|주세요|주시면.*|주시기\s*바랍니다|바랍니다|요망)[.!~ ]*$/, '')
     .replace(/\s*까지\s*$/, '').replace(/^[\s,.\-·]+|[\s,.\-·]+$/g, '').replace(/\s+/g, ' ');
+  // '확인 부탁드려요'처럼 무엇을 할지 없이 동사 하나만 남고 기한도 없으면 할 일로 권하지 않는다 (답장성 말)
+  if (/^(확인|검토|체크|회신|답변|처리|진행|공유|전달|연락|부탁)$/.test(title) && !d.due) return null;
   if (title.length < 2) title = text.slice(0, 80);
   return { title: title.slice(0, 100), assignee, due: d.due };
 }

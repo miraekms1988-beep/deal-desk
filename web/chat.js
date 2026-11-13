@@ -75,7 +75,7 @@ function chatHtml(dealId, dock) {
     <div class="chat-h">${dock ? `<b><span class="live"></span>업무 대화</b><span class="muted small">${esc(dname(dealId))}</span>` : `<b><span class="live"></span>업무 대화</b><span class="muted small">이 딜 얘기 · @이름 · #대주</span>`}${seg}${dock ? '<button class="x-btn" data-act="chat-dock" title="닫기">×</button>' : ''}</div>
     <div class="chat-list" data-deal="${dealId}">${chatListHtml(dealId)}</div>
     <div class="chat-comp"><div class="chat-ac hide"></div>
-      <textarea class="input chat-input" data-deal="${dealId}" rows="2" placeholder="메시지 · @이름 부르기 · #대주 붙이기 · Enter 보내기, Shift+Enter 줄바꿈">${esc(draft)}</textarea>
+      <textarea class="input chat-input" data-deal="${dealId}" rows="2" placeholder="${isPhone() ? '메시지 · @이름 · #대주' : '메시지 · @이름 부르기 · #대주 붙이기 · Enter 보내기, Shift+Enter 줄바꿈'}">${esc(draft)}</textarea>
       <button class="btn dark" data-act="chat-send" data-deal="${dealId}">보내기</button></div></div>`;
 }
 
@@ -179,7 +179,8 @@ document.addEventListener('keydown', e => {
   if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); ac._i = (ac._i + (e.key === 'ArrowDown' ? 1 : -1) + ac._items.length) % ac._items.length; $$('.aci', ac).forEach((x, i) => x.classList.toggle('on', i === ac._i)); return; }
   if (open && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); pickAc(ta, ac._i); return; }
   if (open && e.key === 'Escape') { e.stopPropagation(); hideAc(ta); return; }
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(ta.dataset.deal); }
+  // 휴대폰 자판의 Enter 는 줄바꿈, 보내기는 단추로
+  if (e.key === 'Enter' && !e.shiftKey && !isPhone()) { e.preventDefault(); sendChat(ta.dataset.deal); }
 }, true);
 
 /* 홈 '새 대화' 카드 */
@@ -188,4 +189,4 @@ function homeChatCard() {
   const top = un.filter(mentionsMe).concat(un.filter(m => !mentionsMe(m))).slice(0, 6);
   return `<div class="card"><h2>새 대화 ${unreadBadge(un.length)}</h2>${top.map(m => `<div class="pick" data-act="chat-go" data-deal="${m.dealId}"><div class="grow"><div class="small"><b>${esc(dname(m.dealId))}</b> · ${esc(mname(m.by))} <span class="muted">${when(m.at)}</span>${mentionsMe(m) ? ' <span class="chip gold">@나</span>' : ''}</div><div class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">${esc(m.text)}</div></div></div>`).join('')}</div>`;
 }
-A['chat-go'] = el => { ui.dealTab = 'act'; location.hash = '#/deal/' + encodeURIComponent(el.dataset.deal); };
+A['chat-go'] = el => { ui.dealTab = 'act'; ui.tabsTop = true; location.hash = '#/deal/' + encodeURIComponent(el.dataset.deal); };

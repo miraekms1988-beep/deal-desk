@@ -312,7 +312,12 @@ VIEWS.deal = id => {
   if (ui.chatDock && !isPhone()) return head + `<div class="with-chat"><div style="min-width:0">${dealBoard(d, taps)}</div>${chatHtml(id, true)}</div>`;
   return head + dealBoard(d, taps);
 };
-A['deal-tab'] = el => { ui.dealTab = el.dataset.k; render(); };
+function tabsToTop() { if (!isPhone()) return; const t = $('.tabs'); if (t) window.scrollTo(0, window.scrollY + t.getBoundingClientRect().top - (($('.top') || {}).offsetHeight || 50)); }
+A['deal-tab'] = el => {
+  ui.dealTab = el.dataset.k; render();
+  // 휴대폰에서 업무 대화는 탭이 화면 위에 붙도록 올려 대화창이 한 화면에 꽉 차게
+  if (ui.dealTab === 'act') tabsToTop();
+};
 A['deal-sec'] = el => dealForm(Store.get(el.dataset.id), el.dataset.sec);
 A['deal-file'] = el => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.pdf,.docx,.xlsx,.xlsm,.txt'; inp.onchange = () => { if (inp.files[0]) dealForm(Store.get(el.dataset.id), null, inp.files[0]); }; inp.click(); };
 

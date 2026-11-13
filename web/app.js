@@ -82,6 +82,18 @@ function scheduleRender() {
 }
 function route() { const h = location.hash.replace(/^#\/?/, ''); const [name, ...rest] = h.split('/'); return { name: name || 'home', arg: rest.length ? decodeURIComponent(rest.join('/')) : '' }; }
 const NAV = [['home', '홈'], ['deals', '딜'], ['lenders', '대주'], ['lists', '대주 리스트'], ['mail', '메일'], ['feed', '활동'], ['settings', '설정']];
+// 휴대폰 아래 탭 막대: 짧은 이름 + 선 아이콘
+const NAV_SHORT = { lists: '리스트' };
+const navSvg = d => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const NAV_ICO = {
+  home: navSvg('M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z'),
+  deals: navSvg('M4 7.5h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM9 7.5V5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M4 12.5h16'),
+  lenders: navSvg('M3.5 20h17M5 20v-9M9.7 20v-9M14.3 20v-9M19 20v-9M3 9.5 12 4l9 5.5z'),
+  lists: navSvg('M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01'),
+  mail: navSvg('M3.5 6.5h17v11a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1zM3.5 7l8.5 6 8.5-6'),
+  feed: navSvg('M3.5 12h4l2.5-6 4 12 2.5-6h4'),
+  settings: navSvg('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13.5l1.3 1-1.8 3.1-1.6-.5a7 7 0 0 1-1.7 1l-.3 1.7h-3.6l-.3-1.7a7 7 0 0 1-1.7-1l-1.6.5-1.8-3.1 1.3-1a7 7 0 0 1 0-2l-1.3-1 1.8-3.1 1.6.5a7 7 0 0 1 1.7-1l.3-1.7h3.6l.3 1.7a7 7 0 0 1 1.7 1l1.6-.5 1.8 3.1-1.3 1a7 7 0 0 1 0 2z'),
+};
 function render() {
   pending = false;
   const r = route(), m = me();
@@ -98,13 +110,15 @@ function render() {
     <nav class="nav">${NAV.map(([k, t]) => `<a href="#/${k}" class="${navOn === k ? 'on' : ''}">${t}${k === 'deals' && unread ? ` <span class="ubadge">${unread}</span>` : ''}${k === 'home' && urgentTasks ? ` <span class="ubadge">${urgentTasks}</span>` : ''}</a>`).join('')}</nav>
     <div class="me" data-act="go" data-to="#/settings">${avatar(m.id)}<span>${esc(m.name)}</span></div>
   </div></header>
-  <main id="main">${view(r.arg)}</main>`;
+  <main id="main">${view(r.arg)}</main>
+  <nav class="bnav">${NAV.map(([k, t]) => `<a href="#/${k}" class="${navOn === k ? 'on' : ''}"><span class="bi">${NAV_ICO[k] || ''}${k === 'deals' && unread ? `<span class="ubadge">${unread}</span>` : ''}${k === 'home' && urgentTasks ? `<span class="ubadge">${urgentTasks}</span>` : ''}</span>${NAV_SHORT[k] || t}</a>`).join('')}</nav>`;
   if (r.name === ui._lastRoute) window.scrollTo(0, sy);
   ui._lastRoute = r.name;
   if (r.name === 'cost' && typeof costRefresh === 'function') costRefresh();
   if (typeof initChats === 'function') initChats(keep);
   if (r.name === 'settings' && typeof pushCardHtml === 'function') pushCardHtml().then(h => { const c = $('#push-card'); if (c) c.innerHTML = h; }).catch(() => { });
   if (drawerId) renderDrawer();
+  if (ui.tabsTop && r.name === 'deal') { ui.tabsTop = false; if (typeof tabsToTop === 'function') requestAnimationFrame(tabsToTop); }
 }
 const VIEWS = {};
 // 휴대폰 폭이면 넓은 표 대신 카드 목록으로 그린다 (폭이 바뀌면 다시 그림)
@@ -149,7 +163,8 @@ function modal({ title, body, foot = '', wide = false, onMount, locked = false }
   el.querySelector('[data-x]').onclick = close;
   document.body.appendChild(el);
   if (onMount) onMount(el, close);
-  const f = el.querySelector('input:not([type=checkbox]):not([type=file]), textarea'); if (f) setTimeout(() => f.focus(), 30);
+  // 휴대폰에선 자판이 바로 올라와 창을 가리므로 첫 칸에 자동으로 들어가지 않는다
+  const f = el.querySelector('input:not([type=checkbox]):not([type=file]), textarea'); if (f && !isPhone()) setTimeout(() => f.focus(), 30);
   return { el, close };
 }
 function askText(title, placeholder = '', value = '') {
@@ -341,6 +356,9 @@ VIEWS.home = () => {
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
   const recent = logs();
   const d = new Date();
+  // 내 할 일·새 대화: PC 는 오른쪽 열, 휴대폰은 맨 위 (딜 카드 밑에 묻히지 않게)
+  const mine = (typeof homeTaskCard === 'function' ? homeTaskCard() : '') + (typeof homeChatCard === 'function' ? homeChatCard() : '');
+  const phoneTop = isPhone() ? mine : '';
   return `<div class="page-head"><div><h1>안녕하세요, ${esc(m.name)}님</h1><div class="sub">${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일 · ${esc([CFG.COMPANY, CFG.TEAM].filter(Boolean).join(' '))}</div></div>
     <div class="actions"><button class="btn" data-act="mail-new">메일 쓰기</button><button class="btn dark" data-act="deal-new">+ 새 딜</button></div></div>
   <div class="grid g4" style="margin-bottom:16px">
@@ -349,11 +367,11 @@ VIEWS.home = () => {
     <div class="card kpi"><div class="l">팔로업 필요</div><div class="v" style="color:${follow.length ? 'var(--amber)' : 'inherit'}">${follow.length}<small>곳</small></div></div>
     <div class="card kpi"><div class="l">이번 주 팀 활동</div><div class="v">${recent.filter(l => l.at >= weekAgo).length}<small>건</small></div></div>
   </div>
+  ${phoneTop ? `<div class="grid" style="margin-bottom:16px">${phoneTop}</div>` : ''}
   <div class="split">
     <div>${act.length ? `<div class="grid g2">${act.map(dealCard).join('')}</div>` : `<div class="card empty"><b>진행 중인 딜이 없습니다</b>오른쪽 위 '+ 새 딜'로 시작하세요</div>`}</div>
     <div class="grid">
-      ${typeof homeTaskCard === 'function' ? homeTaskCard() : ''}
-      ${typeof homeChatCard === 'function' ? homeChatCard() : ''}
+      ${phoneTop ? '' : mine}
       <div class="card"><h2>팔로업 필요</h2>${follow.length ? follow.slice(0, 10).map(t => `<div class="pick" data-act="tap" data-id="${t.id}"><div class="grow"><b>${esc(lname(t.lenderId))}</b> <span class="muted small">${esc(dname(t.dealId))}</span><div class="small muted">${STAGE[t.stage].t} · 마지막 접촉 ${daysBetween(t.lastTouch, t0)}일 전</div></div>${avatar(t.owner, 1)}</div>`).join('') : '<div class="muted small">밀린 대주가 없습니다 👍</div>'}</div>
       <div class="card"><h2>다가오는 심의</h2>${upcoming.length ? upcoming.slice(0, 10).map(t => `<div class="pick" data-act="tap" data-id="${t.id}"><div class="grow"><b>${esc(lname(t.lenderId))}</b> <span class="muted small">${esc(dname(t.dealId))}</span><div class="small muted">${fmt(num(t.amount)) ? fmt(num(t.amount)) + '억 · ' : ''}${STAGE[t.stage].t}</div></div><span class="chip ${t.meetDate <= wk ? 'gold' : ''}">${shortDate(t.meetDate)} ${dday(t.meetDate)}</span></div>`).join('') : '<div class="muted small">잡힌 심의 일정이 없습니다</div>'}</div>
       <div class="card"><h2>최근 활동</h2>${feedHtml(recent.slice(0, 12), true)}<div style="margin-top:8px"><a href="#/feed">전체 보기 →</a></div></div>

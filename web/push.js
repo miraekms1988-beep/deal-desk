@@ -137,4 +137,4 @@ A['push-test'] = () => act(async () => {
 C['notify-pref'] = el => act(() => Store.update(Store.mid, m => ({ ...m, notify: { ...(m.notify || {}), [el.dataset.k]: el.checked } })), '저장했습니다');
 
 // 알림을 눌러 열었을 때 ?t=act → 그 탭으로
-(() => { const t = new URLSearchParams(location.search).get('t'); if (t && ['act', 'tasks', 'board', 'info'].includes(t)) ui.dealTab = t; })();
+(() => { const t = new URLSearchParams(location.search).get('t'); if (t && ['act', 'tasks', 'board', 'info'].includes(t)) { ui.dealTab = t; if (t === 'act') ui.tabsTop = true; } })();
