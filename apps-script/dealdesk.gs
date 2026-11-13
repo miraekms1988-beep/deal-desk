@@ -147,6 +147,22 @@ function doPost(e) {
       return json({ ok: true });
     }
 
+    // 앱 알림 전달: 브라우저가 암호화·서명까지 끝낸 요청을 푸시 서비스로 그대로 보낸다 (브라우저는 CORS 로 직접 못 보냄)
+    if (d.op === 'push') {
+      var allowed = /^https:\/\/(fcm\.googleapis\.com|android\.googleapis\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]*\.push\.apple\.com|[a-z0-9.-]*\.notify\.windows\.com)\//;
+      var reqs = [], meta = [];
+      (d.items || []).slice(0, 50).forEach(function (it) {
+        if (!allowed.test(String(it.endpoint || ''))) { meta.push({ endpoint: it.endpoint, code: 0 }); return; }
+        var h = it.headers || {};
+        reqs.push({ url: it.endpoint, method: 'post', contentType: 'application/octet-stream', payload: Utilities.base64Decode(String(it.body || '')), muteHttpExceptions: true,
+          headers: { 'Authorization': String(h.Authorization || ''), 'Content-Encoding': 'aes128gcm', 'TTL': String(h.TTL || '86400'), 'Urgency': String(h.Urgency || 'normal') } });
+        meta.push({ endpoint: it.endpoint, code: -1 });
+      });
+      var resps = reqs.length ? UrlFetchApp.fetchAll(reqs) : [], k = 0;
+      meta.forEach(function (m) { if (m.code === -1) { m.code = resps[k++].getResponseCode(); } });
+      return json({ ok: true, results: meta });
+    }
+
     // 팀원 꾸러미 넣기·빼기 (관리자 화면에서)
     if (d.op === 'keyset' || d.op === 'keydel') {
       var ks2 = sheet(KEYS, ['kid', 'blob', 'at']);
@@ -181,6 +197,8 @@ function fileFolder() {
 function safeId(s) { return String(s || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40); }
 // 편집기에서 한 번 실행하면 드라이브 권한 승인 창이 뜬다
 function authorizeDrive() { fileFolder(); }
+// 편집기에서 한 번 실행하면 '외부 서비스 연결'(앱 알림 전달) 권한 승인 창이 뜬다
+function authorizePush() { UrlFetchApp.fetch('https://fcm.googleapis.com/', { muteHttpExceptions: true }); }
 
 function sheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

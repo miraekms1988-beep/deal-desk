@@ -624,6 +624,7 @@ VIEWS.settings = () => {
         <details style="margin-top:6px"><summary class="small muted" style="cursor:pointer">서명 직접 수정 (비우면 팀 양식)</summary><textarea class="input" id="p-sig" data-inp="sigprev" style="min-height:120px;margin-top:6px" placeholder="{이름띄움} {내부서} {내직함} {회사} {주소} {회사전화} {내연락처} {팩스} {내이메일} 사용 가능">${esc(m.sigCustom || '')}</textarea></details></div>
       <button class="btn dark" data-act="profile-save">저장</button></div>
     <div class="grid">
+      <div class="card" id="push-card"><h2>앱 알림</h2><div class="small muted">불러오는 중…</div></div>
       <div class="card"><h2>비밀번호 바꾸기</h2>
         <div class="row2"><div class="field"><label>새 비밀번호 (10자 이상)</label><input class="input" type="password" id="pw1" autocomplete="new-password"></div><div class="field"><label>한 번 더</label><input class="input" type="password" id="pw2" autocomplete="new-password"></div></div>
         <button class="btn" data-act="pw-save">바꾸기</button></div>

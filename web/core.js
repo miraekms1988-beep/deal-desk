@@ -133,6 +133,7 @@ class MockApi {
       return { ok: true, results };
     }
     // 첨부 조각은 localStorage(5MB)에 못 넣으니 이 창 메모리에만 (시험용)
+    if (d.op === 'push') return { ok: true, results: (d.items || []).map(it => ({ endpoint: it.endpoint, code: 201 })) };   // 시험 모드: 보낸 셈 치기
     if (d.op === 'fput') { (MockApi.files = MockApi.files || new Map()).set(d.fid + '.' + d.idx, d.data); return { ok: true }; }
     if (d.op === 'fget') { const v = (MockApi.files || new Map()).get(d.fid + '.' + d.idx); return v ? { ok: true, data: v } : { ok: false, error: 'not found' }; }
     if (d.op === 'fdel') { for (const k of [...(MockApi.files || new Map()).keys()]) if (k.startsWith(d.fid + '.')) MockApi.files.delete(k); return { ok: true }; }

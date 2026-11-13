@@ -103,6 +103,7 @@ function render() {
   ui._lastRoute = r.name;
   if (r.name === 'cost' && typeof costRefresh === 'function') costRefresh();
   if (typeof initChats === 'function') initChats(keep);
+  if (r.name === 'settings' && typeof pushCardHtml === 'function') pushCardHtml().then(h => { const c = $('#push-card'); if (c) c.innerHTML = h; }).catch(() => { });
   if (drawerId) renderDrawer();
 }
 const VIEWS = {};

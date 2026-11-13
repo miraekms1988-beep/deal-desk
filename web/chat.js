@@ -120,7 +120,8 @@ async function sendChat(dealId) {
   ta.value = ''; (ui.chatDraft = ui.chatDraft || {})[dealId] = '';
   hideAc(ta); growTa(ta);
   await act(async () => {
-    await Store.create('msg', { dealId, text, at: new Date().toISOString(), by: Store.mid, ...refs });
+    const created = await Store.create('msg', { dealId, text, at: new Date().toISOString(), by: Store.mid, ...refs });
+    if (typeof pushForMsg === 'function') pushForMsg(created);   // 담당자·@불린 사람 앱 알림 (기다리지 않음)
     (ui.chatMark = ui.chatMark || {})[dealId] = new Date().toISOString();   // 내가 보낸 뒤로는 '새 메시지' 선 없음
     refreshChats();
     for (const b of $$(`.chat-list[data-deal="${dealId}"]`)) b.scrollTop = b.scrollHeight;

@@ -61,6 +61,7 @@ function detectTask(m) {
 async function createTask(o) {
   const t = await Store.create('task', { dealId: o.dealId, title: o.title, assignee: o.assignee || '', due: o.due || '', done: false, msgId: o.msgId || '', createdBy: Store.mid, createdAt: new Date().toISOString() });
   await addLog({ dealId: o.dealId, type: 'task', text: `할 일 추가: ${o.title}${o.assignee ? ' → ' + mname(o.assignee) : ''}${o.due ? ' · ' + dueLabel({ due: o.due }) : ''}` });
+  if (typeof pushForTask === 'function') pushForTask(t);   // 담당자 앱 알림
   return t;
 }
 async function toggleTask(id) {
